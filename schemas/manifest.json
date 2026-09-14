@@ -1,0 +1,603 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "manifest v1",
+  "type": "object",
+  "properties": {
+    "schema_version": {
+      "const": 1,
+      "type": "integer"
+    },
+    "product": {
+      "type": "string",
+      "minLength": 1
+    },
+    "scope": {
+      "type": "string",
+      "minLength": 1
+    },
+    "harness_version": {
+      "type": "string",
+      "minLength": 1
+    },
+    "qrd": {
+      "type": "string",
+      "minLength": 1
+    },
+    "specifications": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$"
+          },
+          "path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "version": {
+            "type": "string",
+            "minLength": 1
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "approved",
+              "candidate",
+              "missing"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "path",
+          "version",
+          "status"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "scenarios": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "business",
+              "technical"
+            ]
+          },
+          "expected": {
+            "type": "string"
+          },
+          "definition_status": {
+            "type": "string",
+            "enum": [
+              "approved",
+              "candidate",
+              "missing"
+            ]
+          },
+          "approved_by": {
+            "type": "string",
+            "minLength": 1
+          },
+          "approved_at": {
+            "type": "string",
+            "minLength": 1
+          },
+          "references": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "specification": {
+                  "type": "string",
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$"
+                },
+                "locator": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              "required": [
+                "specification",
+                "locator"
+              ],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "definition_status",
+          "references"
+        ],
+        "additionalProperties": false
+      },
+      "minItems": 1
+    },
+    "controls": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$"
+          },
+          "required": {
+            "type": "boolean"
+          },
+          "scenario_ids": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            },
+            "minItems": 1,
+            "uniqueItems": true
+          },
+          "profiles": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            },
+            "minItems": 1,
+            "uniqueItems": true
+          },
+          "bindings": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "scenario_id": {
+                  "type": "string",
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$"
+                },
+                "test_id": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              "required": [
+                "scenario_id",
+                "test_id"
+              ],
+              "additionalProperties": false
+            },
+            "minItems": 1
+          },
+          "preflight": {
+            "type": "object",
+            "properties": {
+              "argv": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "minItems": 1
+              },
+              "cwd": {
+                "type": "string",
+                "minLength": 1
+              },
+              "timeout_seconds": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 3600
+              },
+              "format": {
+                "type": "string",
+                "enum": [
+                  "json",
+                  "junit"
+                ]
+              }
+            },
+            "required": [
+              "argv",
+              "cwd",
+              "timeout_seconds",
+              "format"
+            ],
+            "additionalProperties": false
+          },
+          "setup": {
+            "type": "object",
+            "properties": {
+              "argv": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "minItems": 1
+              },
+              "cwd": {
+                "type": "string",
+                "minLength": 1
+              },
+              "timeout_seconds": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 3600
+              },
+              "format": {
+                "type": "string",
+                "enum": [
+                  "json",
+                  "junit"
+                ]
+              }
+            },
+            "required": [
+              "argv",
+              "cwd",
+              "timeout_seconds",
+              "format"
+            ],
+            "additionalProperties": false
+          },
+          "execute": {
+            "type": "object",
+            "properties": {
+              "argv": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "minItems": 1
+              },
+              "cwd": {
+                "type": "string",
+                "minLength": 1
+              },
+              "timeout_seconds": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 3600
+              },
+              "format": {
+                "type": "string",
+                "enum": [
+                  "json",
+                  "junit"
+                ]
+              }
+            },
+            "required": [
+              "argv",
+              "cwd",
+              "timeout_seconds",
+              "format"
+            ],
+            "additionalProperties": false
+          },
+          "cleanup": {
+            "type": "object",
+            "properties": {
+              "argv": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "minItems": 1
+              },
+              "cwd": {
+                "type": "string",
+                "minLength": 1
+              },
+              "timeout_seconds": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 3600
+              },
+              "format": {
+                "type": "string",
+                "enum": [
+                  "json",
+                  "junit"
+                ]
+              }
+            },
+            "required": [
+              "argv",
+              "cwd",
+              "timeout_seconds",
+              "format"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "id",
+          "required",
+          "scenario_ids",
+          "profiles",
+          "bindings",
+          "execute"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "profiles": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "local",
+              "ci",
+              "staging"
+            ]
+          },
+          "pass_env": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            },
+            "uniqueItems": true
+          },
+          "secret_env": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            },
+            "uniqueItems": true
+          },
+          "required_env": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            },
+            "uniqueItems": true
+          },
+          "sql_target": {
+            "type": "object",
+            "properties": {
+              "server_env": {
+                "type": "string",
+                "minLength": 1
+              },
+              "database_env": {
+                "type": "string",
+                "minLength": 1
+              },
+              "allowed_connections": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "minItems": 1
+              },
+              "expected_server": {
+                "type": "string",
+                "minLength": 1
+              },
+              "expected_database": {
+                "type": "string",
+                "minLength": 1
+              },
+              "expected_principals": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "minItems": 1,
+                "uniqueItems": true
+              },
+              "baseline": {
+                "type": "string",
+                "minLength": 1
+              },
+              "migrations": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              }
+            },
+            "required": [
+              "server_env",
+              "database_env",
+              "allowed_connections",
+              "expected_server",
+              "expected_database",
+              "expected_principals",
+              "baseline",
+              "migrations"
+            ],
+            "additionalProperties": false
+          },
+          "sql_access": {
+            "type": "string",
+            "enum": [
+              "read_only",
+              "isolated_write"
+            ]
+          },
+          "write_scope": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "dedicated_database",
+                  "schema",
+                  "prefix"
+                ]
+              },
+              "value": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "required": [
+              "kind",
+              "value"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "name",
+          "kind",
+          "pass_env",
+          "secret_env",
+          "required_env"
+        ],
+        "additionalProperties": false
+      },
+      "minItems": 1
+    },
+    "manual_checks": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$"
+          },
+          "required": {
+            "type": "boolean"
+          },
+          "scenario_ids": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            },
+            "minItems": 1
+          },
+          "action": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "id",
+          "required",
+          "scenario_ids",
+          "action"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "questions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$"
+          },
+          "scenario_ids": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "open",
+              "resolved"
+            ]
+          },
+          "question": {
+            "type": "string",
+            "minLength": 1
+          },
+          "decision": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "id",
+          "scenario_ids",
+          "status",
+          "question"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "policy": {
+      "type": "object",
+      "properties": {
+        "require_specification": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "require_specification"
+      ],
+      "additionalProperties": false
+    },
+    "exclusions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "description": {
+            "type": "string",
+            "minLength": 1
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "description",
+          "reason"
+        ],
+        "additionalProperties": false
+      }
+    }
+  },
+  "required": [
+    "schema_version",
+    "product",
+    "scope",
+    "harness_version",
+    "qrd",
+    "specifications",
+    "scenarios",
+    "controls",
+    "profiles",
+    "manual_checks",
+    "questions",
+    "policy",
+    "exclusions"
+  ],
+  "additionalProperties": false
+}

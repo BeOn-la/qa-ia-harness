@@ -1,0 +1,123 @@
+{
+  "schema_version": 1,
+  "harness_version": "0.1.0",
+  "qrd": "QRD.md",
+  "manual_checks": [],
+  "questions": [],
+  "policy": {
+    "require_specification": true
+  },
+  "exclusions": [
+    {
+      "description": "Negocio BeOn y produccion",
+      "reason": "Consumidor sintetico para validar el harness"
+    }
+  ],
+  "product": "synthetic-quote-api",
+  "scope": "quote-contract",
+  "specifications": [
+    {
+      "id": "SPEC",
+      "path": "spec.md",
+      "version": "1",
+      "status": "approved"
+    }
+  ],
+  "scenarios": [
+    {
+      "id": "INPUT",
+      "kind": "business",
+      "references": [
+        {
+          "specification": "SPEC",
+          "locator": "RF-001"
+        }
+      ],
+      "expected": "Rechazar entradas invalidas con respuesta 400.",
+      "definition_status": "approved",
+      "approved_by": "fixture-maintainer (synthetic contract only)",
+      "approved_at": "2026-09-11"
+    },
+    {
+      "id": "TOTAL",
+      "kind": "business",
+      "references": [
+        {
+          "specification": "SPEC",
+          "locator": "RF-002"
+        }
+      ],
+      "expected": "Calcular centavos con los ejemplos independientes del contrato.",
+      "definition_status": "approved",
+      "approved_by": "fixture-maintainer (synthetic contract only)",
+      "approved_at": "2026-09-11"
+    }
+  ],
+  "profiles": [
+    {
+      "name": "local",
+      "kind": "local",
+      "pass_env": [
+        "QA_DEMO_BUG"
+      ],
+      "secret_env": [],
+      "required_env": []
+    }
+  ],
+  "controls": [
+    {
+      "id": "quote",
+      "required": true,
+      "scenario_ids": [
+        "INPUT",
+        "TOTAL"
+      ],
+      "profiles": [
+        "local"
+      ],
+      "bindings": [
+        {
+          "scenario_id": "TOTAL",
+          "test_id": "quote::valid"
+        },
+        {
+          "scenario_id": "TOTAL",
+          "test_id": "quote::minimum"
+        },
+        {
+          "scenario_id": "TOTAL",
+          "test_id": "quote::maximum"
+        },
+        {
+          "scenario_id": "INPUT",
+          "test_id": "quote::negative_quantity"
+        },
+        {
+          "scenario_id": "INPUT",
+          "test_id": "quote::zero_quantity"
+        },
+        {
+          "scenario_id": "INPUT",
+          "test_id": "quote::boolean_quantity"
+        },
+        {
+          "scenario_id": "INPUT",
+          "test_id": "quote::negative_price"
+        },
+        {
+          "scenario_id": "INPUT",
+          "test_id": "quote::too_many"
+        }
+      ],
+      "execute": {
+        "argv": [
+          "{python}",
+          "checks.py"
+        ],
+        "cwd": ".",
+        "timeout_seconds": 30,
+        "format": "junit"
+      }
+    }
+  ]
+}

@@ -1,0 +1,12 @@
+.venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+.qa-runs/
+.env
+.env.*
+!.env.example
+
+.qa-profiles.local.json

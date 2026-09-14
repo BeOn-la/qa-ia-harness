@@ -1,0 +1,23 @@
+{
+  "schema_version": 1,
+  "product": "<id-producto>",
+  "scope": "<cambio-o-release>",
+  "harness_version": "0.1.0",
+  "qrd": "docs/qa/QRD-<id>.md",
+  "specifications": [],
+  "scenarios": [],
+  "profiles": [
+    {
+      "name": "local",
+      "kind": "local",
+      "pass_env": [],
+      "secret_env": [],
+      "required_env": []
+    }
+  ],
+  "controls": [],
+  "manual_checks": [],
+  "questions": [],
+  "policy": { "require_specification": true },
+  "exclusions": []
+}

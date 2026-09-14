@@ -1,0 +1,42 @@
+# Adapt after admitting a pilot. This is not an active workflow.
+# Pin the harness wheel/distribution through the consumer's approved dependency source.
+name: QA informational
+on:
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  qa:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1
+        with:
+          python-version: '3.12.10'
+      # Add the consumer's reviewed, pinned install commands before enabling.
+      - name: Evaluate
+        id: evaluate
+        shell: bash
+        run: |
+          set +e
+          qa-harness run --repo . --manifest qa.json --profile ci --output .qa-runs/current
+          code=$?
+          echo "qa_exit_code=$code" >> "$GITHUB_OUTPUT"
+          echo "QA exit code: $code; informational, not approval" >> "$GITHUB_STEP_SUMMARY"
+          if test -f .qa-runs/current/report.md; then
+            cat .qa-runs/current/report.md >> "$GITHUB_STEP_SUMMARY"
+          fi
+          exit 0
+      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f
+        if: always()
+        with:
+          name: qa-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: .qa-runs/current/
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 30
+      # Later: a separate required step runs qa-harness gate using current evidence.

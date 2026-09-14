@@ -1,0 +1,29 @@
+{
+  "name": "staging-read",
+  "kind": "staging",
+  "pass_env": [
+    "MSSQL_ODBC_DRIVER",
+    "MSSQL_SERVER",
+    "MSSQL_DATABASE",
+    "MSSQL_USER",
+    "MSSQL_PASSWORD",
+    "MSSQL_AUTHENTICATION",
+    "MSSQL_ENCRYPT",
+    "MSSQL_TRUST_SERVER_CERTIFICATE",
+    "MSSQL_LOGIN_TIMEOUT",
+    "MSSQL_QUERY_TIMEOUT"
+  ],
+  "secret_env": ["MSSQL_PASSWORD"],
+  "required_env": ["MSSQL_SERVER", "MSSQL_DATABASE", "MSSQL_USER", "MSSQL_PASSWORD"],
+  "sql_access": "read_only",
+  "sql_target": {
+    "server_env": "MSSQL_SERVER",
+    "database_env": "MSSQL_DATABASE",
+    "allowed_connections": ["<staging-server>"],
+    "expected_server": "<server-name-returned-by-SERVERPROPERTY>",
+    "expected_database": "<staging-database>",
+    "expected_principals": ["<qa-read-principal>"],
+    "baseline": "db/baseline.sql",
+    "migrations": []
+  }
+}

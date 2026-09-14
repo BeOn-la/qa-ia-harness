@@ -1,0 +1,164 @@
+{
+  "schema_version": 1,
+  "harness_version": "0.1.0",
+  "qrd": "QRD.md",
+  "manual_checks": [],
+  "questions": [],
+  "policy": {
+    "require_specification": true
+  },
+  "exclusions": [
+    {
+      "description": "Negocio BeOn y produccion",
+      "reason": "Consumidor sintetico para validar el harness"
+    }
+  ],
+  "product": "synthetic-sql",
+  "scope": "missing-url-contract",
+  "specifications": [
+    {
+      "id": "SPEC",
+      "path": "specification.md",
+      "version": "1",
+      "status": "approved"
+    }
+  ],
+  "scenarios": [
+    {
+      "id": "FILTER",
+      "kind": "business",
+      "references": [
+        {
+          "specification": "SPEC",
+          "locator": "RF-001"
+        }
+      ],
+      "expected": "IDs [1,2,3]; excluir 4 y 5.",
+      "definition_status": "approved",
+      "approved_by": "fixture-maintainer (synthetic contract only)",
+      "approved_at": "2026-09-11"
+    },
+    {
+      "id": "FIXTURE",
+      "kind": "technical",
+      "references": [
+        {
+          "specification": "SPEC",
+          "locator": "RF-002"
+        }
+      ],
+      "expected": "Cinco filas de seed, con limpieza verificada.",
+      "definition_status": "approved",
+      "approved_by": "fixture-maintainer (synthetic contract only)",
+      "approved_at": "2026-09-11"
+    }
+  ],
+  "profiles": [
+    {
+      "name": "disposable",
+      "kind": "local",
+      "pass_env": [
+        "QA_SQL_CONTAINER",
+        "QA_SQL_SERVER",
+        "QA_SQL_DATABASE",
+        "QA_SQL_PASSWORD",
+        "QA_DEMO_BUG"
+      ],
+      "secret_env": [
+        "QA_SQL_PASSWORD"
+      ],
+      "required_env": [
+        "QA_SQL_CONTAINER",
+        "QA_SQL_SERVER",
+        "QA_SQL_DATABASE",
+        "QA_SQL_PASSWORD"
+      ],
+      "sql_access": "isolated_write",
+      "write_scope": {
+        "kind": "dedicated_database",
+        "value": "qa_harness_demo"
+      },
+      "sql_target": {
+        "server_env": "QA_SQL_SERVER",
+        "database_env": "QA_SQL_DATABASE",
+        "allowed_connections": [
+          "localhost"
+        ],
+        "expected_server": "qa-harness-sql",
+        "expected_database": "qa_harness_demo",
+        "expected_principals": [
+          "sa"
+        ],
+        "baseline": "baseline.sql",
+        "migrations": []
+      }
+    }
+  ],
+  "controls": [
+    {
+      "id": "sql-url",
+      "required": true,
+      "scenario_ids": [
+        "FILTER",
+        "FIXTURE"
+      ],
+      "profiles": [
+        "disposable"
+      ],
+      "bindings": [
+        {
+          "scenario_id": "FILTER",
+          "test_id": "null_and_hyphens"
+        },
+        {
+          "scenario_id": "FILTER",
+          "test_id": "valid_and_empty_excluded"
+        },
+        {
+          "scenario_id": "FIXTURE",
+          "test_id": "seed_present"
+        }
+      ],
+      "preflight": {
+        "argv": [
+          "{python}",
+          "checks.py",
+          "preflight"
+        ],
+        "cwd": ".",
+        "timeout_seconds": 30,
+        "format": "json"
+      },
+      "setup": {
+        "argv": [
+          "{python}",
+          "checks.py",
+          "setup"
+        ],
+        "cwd": ".",
+        "timeout_seconds": 30,
+        "format": "json"
+      },
+      "execute": {
+        "argv": [
+          "{python}",
+          "checks.py",
+          "execute"
+        ],
+        "cwd": ".",
+        "timeout_seconds": 30,
+        "format": "json"
+      },
+      "cleanup": {
+        "argv": [
+          "{python}",
+          "checks.py",
+          "cleanup"
+        ],
+        "cwd": ".",
+        "timeout_seconds": 30,
+        "format": "json"
+      }
+    }
+  ]
+}
