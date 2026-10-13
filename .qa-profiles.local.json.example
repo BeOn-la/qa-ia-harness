@@ -1,0 +1,20 @@
+{
+  "sql_framework_root": "../qa-sql-testing-framework",
+  "profiles": {
+    "local": {
+      "execution": "allowed",
+      "env_file": "config/sql/.env.local",
+      "description": "SQL Express / instancia local (desde qa-sql-testing-framework)"
+    },
+    "staging": {
+      "execution": "allowed",
+      "env_file": "config/sql/.env.test",
+      "description": "Azure SQL de prueba / test (.env.test del framework SQL)"
+    },
+    "production": {
+      "execution": "blocked",
+      "env_file": "config/sql/.env.prod",
+      "description": "Solo referencia; Invoke-QAProfile rechaza ejecutar con perfil production"
+    }
+  }
+}

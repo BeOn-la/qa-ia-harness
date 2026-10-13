@@ -8,5 +8,8 @@ dist/
 .env
 .env.*
 !.env.example
+config/sql/.env
+config/sql/.env.*
+!config/sql/.env.example
 
 .qa-profiles.local.json

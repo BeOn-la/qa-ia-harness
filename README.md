@@ -52,6 +52,21 @@ El ejemplo SQL crea exclusivamente un contenedor SQL Server temporal y aislado, 
 5. Ejecutar, revisar los reportes y repetir sobre el commit final.
 6. Incorporar el workflow de [GitHub Actions](integrations/github/consumer-workflow.yml.example) inicialmente como informativo.
 
+## Conexión SQL (qa-sql-testing-framework)
+
+El núcleo **no** carga `.env` por diseño. Para reutilizar los perfiles de `qa-sql-testing-framework` (local, test, prod):
+
+```powershell
+.\tools\Init-SqlProfilesFromSqlFramework.ps1
+# Opcional: -SqlFrameworkRoot "C:\ruta\qa-sql-testing-framework" -Force
+
+.\tools\Invoke-QAProfile.ps1 -Profile staging qa-harness run --repo <consumidor> --profile <nombre-en-qa.json>
+```
+
+Eso copia `.env.local`, `.env.test` y `.env.prod` a `config/sql/` (ignorado por Git) y crea `.qa-profiles.local.json`. Un `qa.json` del repo consumidor puede fijar otro servidor/base en `sql_target`; el harness valida que coincida con el entorno cargado.
+
+En `qa-sql-testing-framework`, `pbi-qa` y `tools/mssql_common.py` pueden usar el mismo perfil con `MSSQL_ENV_FILE` o `QA_DB_PROFILE` (ver README de ese repo).
+
 ## Documentación
 
 - [Contrato y CLI](docs/contract.md)
