@@ -13,6 +13,13 @@ config/sql/.env.*
 !config/sql/.env.example
 
 .qa-profiles.local.json
-tools/_mcp_range_pull.json
+
+# Scratch de corridas / MCP (no commitear)
+/_*.json
+/_*.txt
+tools/_*.py
+tools/_parts/
+tools/_*.json
+tools/mcp_*.json
 tools/_sheet_export.csv
 tools/catalog_chunks/
