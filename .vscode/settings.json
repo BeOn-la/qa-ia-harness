@@ -1,4 +1,5 @@
 {
+    "python.defaultInterpreterPath": "${workspaceFolder}/.venv/Scripts/python.exe",
     "chat.agentSkillsLocations": {
         ".agents/skills": true,
         ".github/skills": true,

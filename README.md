@@ -67,6 +67,24 @@ Eso copia `.env.local`, `.env.test` y `.env.prod` a `config/sql/` (ignorado por 
 
 En `qa-sql-testing-framework`, `pbi-qa` y `tools/mssql_common.py` pueden usar el mismo perfil con `MSSQL_ENV_FILE` o `QA_DB_PROFILE` (ver README de ese repo).
 
+### KPI tablero Softys (oráculos mensuales)
+
+Compara **from-dax** vs **from-definition** para octubre (rango en `beon-pbi/Softys/qa/sql/_lib/params_range.sql`), usando el runner SQL del consumidor y credenciales del perfil local.
+
+1. Copiar `.qa-profiles.local.json.example` → `.qa-profiles.local.json` y ajustar `pbi_qa.board_qa_root` / `framework_root`.
+2. Sincronizar perfiles SQL: `.\tools\Init-SqlProfilesFromSqlFramework.ps1`
+3. Ejecutar:
+
+```powershell
+.\tools\Invoke-PbiKpiMonthOracles.ps1 -Profile staging
+# o
+.\.venv\Scripts\qa-harness.exe pbi-kpi-month --profile staging
+```
+
+Salida JSON en stdout; exit **0** si todos los `compare_status` son `pass`. Opcional: `--kpi title-compliance`.
+
+Comandos Cursor (**multi-tablero**): `/CalculoKPI`, `/CalculoFiltro`, `/CalculoScope`, `/CalculoVisuales`, `/RevisionManual` en `.cursor/commands/`. Arrastrar `.Report` / `.pbip` al invocar; resolver con `qa-harness resolve-board --ref "<ruta>"`. Perfiles en `.qa-profiles.local.json` → `boards`. Ver `integrations/cursor/BOARD-QA.md`.
+
 ## Documentación
 
 - [Contrato y CLI](docs/contract.md)

@@ -1,5 +1,18 @@
 {
   "sql_framework_root": "../qa-sql-testing-framework",
+  "default_board": "softys-dashboard-2",
+  "boards": {
+    "softys-dashboard-2": {
+      "label": "Softys Dashboard 2.0",
+      "consumer_repo_root": "../beon-pbi",
+      "board_qa_root": "../beon-pbi/Softys/qa",
+      "pbip_relative": "Softys/Softys (1).pbip",
+      "report_relative": "Softys/Softys (1).Report",
+      "kpi_catalog_root": "../beon-pbi/qa",
+      "scope_confluence_url": "https://beonbi.atlassian.net/wiki/spaces/DDP/pages/1044840449/Scope-Softys-AR-Perfect+eStores-01.08.2026",
+      "framework_root": "../qa-sql-testing-framework"
+    }
+  },
   "profiles": {
     "local": {
       "execution": "allowed",

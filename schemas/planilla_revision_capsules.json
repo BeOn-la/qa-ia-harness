@@ -1,0 +1,23 @@
+{
+  "schema_version": 1,
+  "description": "Valores de cápsulas (validación de datos) en la planilla QA Softys. Verificar contra la pestaña plantilla si cambian.",
+  "estado": {
+    "aprobado": "Aprobado",
+    "error": "Error",
+    "sin_revisar": "Sin revisar"
+  },
+  "tipo_error_por_capa": {
+    "filtros": "Datos",
+    "indicadores": "Cálculo",
+    "visuales": "Visual",
+    "alcance": "Funcional"
+  },
+  "prioridad_error_default": "Alta",
+  "controlado_por_error_default": "Gabriel Motrel",
+  "politica": {
+    "observaciones_solo_en_error": true,
+    "columna_observaciones_para_desarrollo": "observaciones_qa",
+    "limpiar_campos_error_si_aprobado": true,
+    "estados_error_previos": ["Error", "Rechazado", "Fallido"]
+  }
+}
