@@ -21,6 +21,7 @@ from .page_expectations import (
     contracted_kpi_ids,
     evaluate_scope_on_page,
     expectation_for_page,
+    load_alcance_ajustes_planilla,
     load_page_expectations,
     load_scope_kpis,
 )
@@ -69,6 +70,7 @@ def run_kpi_por_hoja(
     scope_doc = load_scope_kpis(board_path)
     contracted = contracted_kpi_ids(scope_doc)
     page_expectations = load_page_expectations(board_path)
+    alcance_ajustes = load_alcance_ajustes_planilla(board_path)
 
     oracle = run_month_oracles(
         harness_root_path=root,
@@ -99,6 +101,8 @@ def run_kpi_por_hoja(
             contracted=contracted,
             shown_kpi_ids=shown_ids,
             catalog_ids=catalog_ids,
+            display_name=page.display_name,
+            alcance_ajustes_por_hoja=alcance_ajustes,
         )
 
         casos: list[dict[str, Any]] = []

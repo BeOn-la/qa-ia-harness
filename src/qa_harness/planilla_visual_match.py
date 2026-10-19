@@ -10,7 +10,14 @@ from .planilla_qa import _norm_tablero, _norm_text, _page_key_from_hoja_result, 
 
 def visual_index_key(caso_visual: dict[str, Any]) -> str:
     lectura = caso_visual.get("lectura_qa") or caso_visual.get("nombre_caso") or ""
-    return _norm_text(lectura)[:80]
+    base = _norm_text(lectura)[:72]
+    vid = (caso_visual.get("identificador_visual") or "").strip()
+    if vid:
+        return f"{base}|{vid[:12]}"
+    orden = caso_visual.get("orden_en_hoja")
+    if orden is not None:
+        return f"{base}|o{orden}"
+    return base
 
 
 def _visuals_interpretados(visuales: dict[str, Any] | None, page_key: str) -> list[dict[str, Any]]:
@@ -104,7 +111,24 @@ def try_match_planilla_visual(
 
     # --- Selectores / filtros operativos (no scope-filters.json) ---
     if "selector de all / in stock / listed" in norm:
+        def _campos_text(v: dict[str, Any]) -> str:
+            return _norm_text(" ".join(v.get("campos_en_consulta") or []))
+
         p = pool_lectura("parameter full")
+        if not p:
+            p = [
+                v
+                for v in visuals
+                if v.get("tipo_visual") == "slicer"
+                and (
+                    "selector kpi" in _campos_text(v)
+                    or "parameter full" in _campos_text(v)
+                    or (
+                        "filtro operativo (filtro)" in _norm_text(v.get("rol_interpretado") or "")
+                        and float((v.get("posicion_en_canvas") or {}).get("y") or 999) < 220
+                    )
+                )
+            ]
         v = _pick_by_slot(p, "param_full", page_state)
         if v:
             return _binding_visual(page_key, v), {**meta_base, "patron": "selector_all_stock_listed"}
@@ -237,11 +261,37 @@ def try_match_planilla_visual(
         if v:
             return _binding_visual(page_key, v), {**meta_base, "patron": "boton_nav"}
 
-    if "iconos de navegacion" in norm or "icono de home" in norm or "flecha de navegacion" in norm:
-        p = pool_rol("acción ir a otra hoja") or pool_rol("accion ir a otra hoja")
-        v = _pick_by_slot(p, "accion_ir", page_state)
+    if "icono de home" in norm:
+        p = [
+            v
+            for v in visuals
+            if "navegacion a home" in _norm_text(v.get("rol_interpretado") or "")
+        ]
+        if not p:
+            p = sorted(
+                [v for v in visuals if float((v.get("posicion_en_canvas") or {}).get("y") or 999) < 80],
+                key=lambda c: float((c.get("posicion_en_canvas") or {}).get("x") or 0),
+            )
+        v = _pick_by_slot(p, "icono_home", page_state, index=0)
         if v:
-            return _binding_visual(page_key, v), {**meta_base, "patron": "accion_ir"}
+            return _binding_visual(page_key, v), {**meta_base, "patron": "icono_home"}
+
+    if "flecha de navegacion" in norm:
+        p = [
+            v
+            for v in visuals
+            if "navegacion atras" in _norm_text(v.get("rol_interpretado") or "")
+        ]
+        v = _pick_by_slot(p, "flecha_atras", page_state, index=0)
+        if v:
+            return _binding_visual(page_key, v), {**meta_base, "patron": "flecha_atras"}
+
+    if "iconos de navegacion" in norm:
+        p = pool_rol("acción ir a otra hoja") or pool_rol("accion ir a otra hoja")
+        p = [v for v in p if "home" not in _norm_text(v.get("detalle") or "")]
+        v = _pick_by_slot(p, "iconos_nav_plus", page_state, index=_nth_in_caso(caso))
+        if v:
+            return _binding_visual(page_key, v), {**meta_base, "patron": "iconos_nav_plus"}
 
     if "boton de navegacion" in norm or "navegacion +detail" in norm:
         p = pool_rol("acción ir a otra hoja")

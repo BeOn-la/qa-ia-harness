@@ -50,6 +50,7 @@ class PageVisualEnriched:
     navigation_page_ids: tuple[str, ...]
     action_button_kind: str | None
     has_visual_link: bool
+    visual_link_kind: str | None = None
     tab_order: int = 0
     z_index: float = 0.0
 
@@ -138,6 +139,18 @@ def _detect_action_button_kind(text: str) -> str | None:
     return None
 
 
+def _norm_page_name(name: str) -> str:
+    return (name or "").strip().casefold()
+
+
+def _detect_visual_link_kind(text: str) -> str | None:
+    if "'Back'" in text or '"Back"' in text:
+        return "back"
+    if "PageNavigation" in text:
+        return "page_navigation"
+    return None
+
+
 def list_visuals_enriched(report_path: Path, page_id: str) -> list[PageVisualEnriched]:
     folder = report_path / "definition" / "pages" / page_id / "visuals"
     if not folder.is_dir():
@@ -176,6 +189,7 @@ def list_visuals_enriched(report_path: Path, page_id: str) -> list[PageVisualEnr
                 navigation_page_ids=nav_pages,
                 action_button_kind=_detect_action_button_kind(text),
                 has_visual_link=has_link,
+                visual_link_kind=_detect_visual_link_kind(text),
                 tab_order=int(pos.get("tabOrder") or 0),
                 z_index=float(pos.get("z") or 0),
             )
@@ -401,6 +415,30 @@ def evaluate_visual_contextual(
         if kpi_id:
             base["identificador_indicador"] = kpi_id
         return base
+
+    if visual.visual_link_kind == "back":
+        return finish(
+            "navegación atrás",
+            "correcto",
+            "Botón de retroceso del informe (historial de navegación de Power BI).",
+        )
+
+    if vtype_cf == "image" and visual.navigation_page_ids:
+        nav_name = page_id_to_name.get(
+            visual.navigation_page_ids[0], visual.navigation_page_ids[0]
+        )
+        if _norm_page_name(nav_name) == "home":
+            return finish(
+                "navegación a Home",
+                "correcto",
+                "Ícono o imagen con enlace a la hoja Home.",
+                nombre_caso=f"{page_display_name} · ícono Home",
+            )
+        return finish(
+            "enlace a otra hoja",
+            "correcto",
+            f"Imagen con enlace a la hoja «{nav_name}».",
+        )
 
     # —— Navegación: shape / botón con bookmark o cambio de hoja ——
     if vtype_cf in ("shape", "actionbutton") and (

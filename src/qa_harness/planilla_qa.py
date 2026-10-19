@@ -13,14 +13,34 @@ from typing import Any, Iterable
 from .common import ContractError
 
 
-def _load_revision_capsules() -> dict[str, Any]:
+def _load_revision_capsules(board_qa_root: Path | None = None) -> dict[str, Any]:
     bundled = pkg_files("qa_harness.schemas").joinpath("planilla_revision_capsules.json")
     path = Path(bundled)
     if not path.is_file():
         path = Path(__file__).resolve().parents[2] / "schemas" / "planilla_revision_capsules.json"
     if not path.is_file():
         raise ContractError("Falta schemas/planilla_revision_capsules.json en el paquete.")
-    return json.loads(path.read_text(encoding="utf-8"))
+    data = json.loads(path.read_text(encoding="utf-8"))
+    if board_qa_root:
+        local = Path(board_qa_root) / "planilla-revision-capsules.json"
+        if local.is_file():
+            override = json.loads(local.read_text(encoding="utf-8-sig"))
+            for key in (
+                "prioridad",
+                "controlado_por",
+                "tipo_prueba",
+                "prioridad_error_default",
+                "controlado_por_error_default",
+                "tipo_error_por_capa",
+                "tipo_prueba_por_capa",
+                "politica",
+            ):
+                if key in override:
+                    if isinstance(data.get(key), dict) and isinstance(override[key], dict):
+                        data[key] = {**data[key], **override[key]}
+                    else:
+                        data[key] = override[key]
+    return data
 
 
 REVISION_FIELD_NAMES = (
@@ -46,9 +66,39 @@ FIXED_HEADERS = (
     "Tipo de Prueba",
 )
 
-# Columna G = revisión 1 (1-based índice 7).
+# Columna G = revisión 1 (1-based índice 7) en plantilla clásica A–F.
 REVISION_1_START_COL = 7
+# Corrida repo: columna E = Resultado Obtenido → revisión 1 empieza en H (8).
+CORRIDA_REPO_REVISION_1_START_COL = 8
 REVISION_WIDTH = len(REVISION_FIELD_NAMES)
+
+
+def load_planilla_qa_config(board_qa_root: Path) -> dict[str, Any]:
+    """Lee bloque planilla_qa de board.yml (sin dependencia PyYAML)."""
+    path = board_qa_root / "board.yml"
+    if not path.is_file():
+        return {}
+    out: dict[str, Any] = {}
+    in_block = False
+    for line in path.read_text(encoding="utf-8").splitlines():
+        stripped = line.strip()
+        if stripped == "planilla_qa:":
+            in_block = True
+            continue
+        if not in_block:
+            continue
+        if line and not line[0].isspace():
+            break
+        if ":" not in line:
+            continue
+        key, value = line.split(":", 1)
+        out[key.strip()] = value.strip()
+    if out.get("template_sheet_id") is not None:
+        try:
+            out["template_sheet_id"] = int(str(out["template_sheet_id"]))
+        except ValueError:
+            pass
+    return out
 
 KPI_TITLE_TO_ID: dict[str, str] = {
     "assortment": "assortment",
@@ -310,14 +360,14 @@ def augment_catalog_with_harness(
                 "id": "",
                 "caso_de_prueba": titulo,
                 "pasos_a_seguir": (
-                    f"En la hoja {tab_display}, revisar el visual indicado en la corrida "
-                    f"(orden {auto.get('orden_en_hoja') or '—'} en test-evidence/visuales-por-hoja)."
+                    f"Abrir la hoja «{tab_display}» del informe y revisar el elemento señalado "
+                    f"en la fila del caso (posición {auto.get('orden_en_hoja') or '—'} en el layout de la hoja)."
                 ),
                 "resultado_esperado": (
-                    "El elemento cumple las reglas de interpretación QA del tablero para esa hoja."
+                    "El visual cumple el comportamiento esperado para esa hoja según el contrato del tablero."
                 ),
                 "tablero": tab_display,
-                "tipo_prueba": "",
+                "tipo_prueba": "Visuales",
                 "catalog_nuevo": True,
                 "automation": {
                     "capa": "visuales",
@@ -361,11 +411,87 @@ def _estados_error_para_filtro_previo() -> tuple[str, ...]:
     return tuple(str(x) for x in prev)
 
 
-def _error_metadata_for_capa(capa: str) -> tuple[str, str, str]:
+def _capsule_choice(
+    field: str,
+    value: str,
+    *,
+    fallback: str,
+    caps: dict[str, Any] | None = None,
+) -> str:
+    caps = caps or _load_revision_capsules()
+    allowed = caps.get(field) or []
+    if isinstance(allowed, list) and value in allowed:
+        return value
+    if isinstance(allowed, list) and fallback in allowed:
+        return fallback
+    return value or fallback
+
+
+def _tipo_prueba_para_capa(capa: str) -> str | None:
     caps = _load_revision_capsules()
+    raw = (caps.get("tipo_prueba_por_capa") or {}).get(capa)
+    if not raw:
+        return None
+    return _capsule_choice("tipo_prueba", str(raw), fallback=str(raw))
+
+
+def _normalizar_tipo_prueba_catalogo(valor: str | None, *, capa: str | None = None) -> str:
+    caps = _load_revision_capsules()
+    allowed = set(caps.get("tipo_prueba") or [])
+    actual = (valor or "").strip()
+    if actual in allowed:
+        return actual
+    if capa:
+        inferido = _tipo_prueba_para_capa(capa)
+        if inferido:
+            return inferido
+    return ""
+
+
+def _sanitizar_texto_planilla(texto: str) -> str:
+    """Quita rutas, nombres de repo harness y referencias a artefactos internos de QA."""
+    if not texto:
+        return ""
+    t = texto.strip().replace("\n", " ")
+    patrones = (
+        r"test-evidence[^\s]*",
+        r"qa-ia-harness[^\s]*",
+        r"scope-kpis\.json",
+        r"scope-filters\.json",
+        r"planilla-harness-bindings[^\s]*",
+        r"identificador interno de QA:\s*[\w-]+",
+        r"\(identificador interno[^)]+\)",
+        r"según reglas del harness",
+        r"interpretación QA del tablero",
+        r"corrida automática de visuales",
+    )
+    for pat in patrones:
+        t = re.sub(pat, "", t, flags=re.IGNORECASE)
+    t = re.sub(r"\bfaltan en sql\b:", "Faltan opciones respecto al universo acordado:", t, flags=re.IGNORECASE)
+    t = re.sub(r"\bsobran en sql\b:", "Hay opciones de más respecto al universo acordado:", t, flags=re.IGNORECASE)
+    t = re.sub(r"\s{2,}", " ", t).strip(" ,;.")
+    return t
+
+
+def _error_metadata_for_capa(
+    capa: str,
+    *,
+    caps: dict[str, Any] | None = None,
+) -> tuple[str, str, str]:
+    caps = caps or _load_revision_capsules()
     tipo = (caps.get("tipo_error_por_capa") or {}).get(capa) or "Datos"
-    prioridad = caps.get("prioridad_error_default") or "Alta"
-    controlado = caps.get("controlado_por_error_default") or "Gabriel Motrel"
+    prioridad = _capsule_choice(
+        "prioridad",
+        str(caps.get("prioridad_error_default") or "Alta"),
+        fallback="Alta",
+        caps=caps,
+    )
+    controlado = _capsule_choice(
+        "controlado_por",
+        str(caps.get("controlado_por_error_default") or "Motrel Gabriel"),
+        fallback="Motrel Gabriel",
+        caps=caps,
+    )
     return tipo, prioridad, controlado
 
 
@@ -441,13 +567,15 @@ def build_automation_index(
                     }
 
     if visuales:
+        from .planilla_visual_match import visual_index_key
+
         for hoja in visuales.get("hojas") or []:
             pk = _page_key_from_hoja_result(hoja)
             visuales_hoja: list[dict[str, Any]] = []
             for caso in hoja.get("casos_de_prueba") or []:
                 v = caso.get("veredicto")
                 lectura = caso.get("lectura_qa") or caso.get("nombre_caso") or ""
-                key = _norm_text(lectura)[:80]
+                key = visual_index_key(caso)
                 index[(pk, "visuales", key)] = {
                     "veredicto": v,
                     "detalle": caso.get("detalle") or "",
@@ -566,16 +694,15 @@ def _infer_pasos_y_resultado(
                 "de más ni faltantes)."
             )
     elif capa == "indicadores":
-        kpi = binding.get("kpi_id") or (automation or {}).get("kpi_id") or ""
         if not (case.get("pasos_a_seguir") or "").strip():
             out["pasos_a_seguir"] = (
-                f"En la hoja «{tablero}», localizar el indicador relacionado con «{caso}» "
-                f"(identificador interno de QA: {kpi}) y el periodo mensual configurado en el tablero."
+                f"En la hoja «{tablero}», localizar el indicador de «{caso}» "
+                f"y el periodo mensual configurado en el tablero."
             )
         if not (case.get("resultado_esperado") or "").strip():
             out["resultado_esperado"] = (
-                "El valor mostrado en el modelo (medidas DAX del tablero) coincide con el oráculo "
-                "mensual ejecutado en SQL (staging): mismas reglas de negocio y mismo universo filtrado."
+                "El valor mostrado en Power BI coincide con el cálculo de referencia del periodo "
+                "(mismas reglas de negocio y mismo universo filtrado)."
             )
     elif capa == "visuales_resumen":
         if not (case.get("pasos_a_seguir") or "").strip():
@@ -585,28 +712,21 @@ def _infer_pasos_y_resultado(
             )
         if not (case.get("resultado_esperado") or "").strip():
             out["resultado_esperado"] = (
-                "La hoja no presenta fallos detectados por la corrida automática de visuales "
-                "(layout, navegación, gráficos y tablas según reglas del harness)."
+                "La hoja no presenta fallos en layout, navegación, gráficos ni tablas revisados."
             )
     elif capa == "alcance":
         if not (case.get("pasos_a_seguir") or "").strip():
             out["pasos_a_seguir"] = (
-                f"En «{tablero}», listar tarjetas/KPI visibles y comparar con scope-kpis.json."
+                f"En «{tablero}», listar los indicadores visibles y compararlos con el alcance contractual."
             )
         if not (case.get("resultado_esperado") or "").strip():
             out["resultado_esperado"] = (
-                "Conjunto de indicadores visible alineado al contrato Softys para ese tipo de hoja."
+                "Los indicadores visibles coinciden con el alcance acordado para ese tipo de hoja."
             )
     if not (case.get("tipo_prueba") or "").strip() and binding:
-        capa = binding.get("capa")
-        if capa == "filtros":
-            out.setdefault("tipo_prueba_inferido", "Filtros")
-        elif capa == "indicadores":
-            out.setdefault("tipo_prueba_inferido", "KPI/Calculos")
-        elif capa in ("visuales", "visuales_resumen"):
-            out.setdefault("tipo_prueba_inferido", "Visuales")
-        elif capa == "alcance":
-            out.setdefault("tipo_prueba_inferido", "Alcance")
+        inferido = _tipo_prueba_para_capa(str(binding.get("capa") or ""))
+        if inferido:
+            out.setdefault("tipo_prueba_inferido", inferido)
     return out
 
 
@@ -630,7 +750,76 @@ def _catalog_field_patches(
     return patches
 
 
-def _truncar_obs(texto: str, max_len: int = 320) -> str:
+def _detalle_parece_contrato_filtro(detalle: str, caso: str) -> bool:
+    """True si el detalle es el volcado SQL/scope de un filtro, no del caso visual."""
+    norm_d = _norm_text(detalle)
+    norm_c = _norm_text(caso)
+    if not norm_d:
+        return False
+    if "mock_categorygroup" in norm_d or "faltan opciones respecto" in norm_d:
+        if "category" in norm_d and "category" not in norm_c and "categoria" not in norm_c:
+            return True
+        if "etailer" in norm_d and "etailer" not in norm_c and "store" not in norm_c:
+            return True
+        if "keyword" in norm_d and "keyword" not in norm_c:
+            return True
+    if "elemento(s) del layout con fallo" in norm_d:
+        return True
+    return False
+
+
+def _resumir_detalle_filtro(detalle: str) -> str:
+    detalle = _sanitizar_texto_planilla(detalle)
+    partes: list[str] = []
+    if "mock_categorygroup" in detalle.lower():
+        partes.append("El slicer no usa el campo de categoría definido en el contrato.")
+    m_faltan = re.search(
+        r"Faltan opciones respecto al universo acordado:\s*([^;]+)",
+        detalle,
+        flags=re.IGNORECASE,
+    )
+    if m_faltan:
+        n = len([x for x in m_faltan.group(1).split(",") if x.strip()])
+        partes.append(f"Faltan {n} opción(es) en el slicer respecto al universo acordado.")
+    if re.search(r"Hay opciones de más", detalle, flags=re.IGNORECASE):
+        partes.append("Hay opciones de más en el slicer respecto al universo acordado.")
+    if partes:
+        return " ".join(partes)
+    return _truncar_obs(detalle, 160)
+
+
+def _detalle_visual_caso(automation: dict[str, Any], caso: str) -> str:
+    det = _sanitizar_texto_planilla((automation.get("detalle") or "").strip())
+    if det and not _detalle_parece_contrato_filtro(det, caso):
+        return _truncar_obs(det, 160)
+    lectura = (automation.get("lectura_qa") or "").strip()
+    if "·" in lectura:
+        lectura = lectura.split("·", 1)[-1].strip()
+    if lectura:
+        return _truncar_obs(lectura, 120)
+    return ""
+
+
+def _fallos_resumen_para_caso(caso: str, automation: dict[str, Any]) -> str:
+    det = _sanitizar_texto_planilla((automation.get("detalle") or "").strip())
+    norm_caso = _norm_text(caso)
+    if "Visual #" in det and "|" in det:
+        partes = [p.strip() for p in det.split("|") if p.strip()]
+        tokens = [t for t in re.findall(r"[a-z0-9]{5,}", norm_caso)]
+        elegidas = [p for p in partes if any(t in _norm_text(p) for t in tokens)]
+        if "estetica" in norm_caso:
+            elegidas = elegidas or [p for p in partes if "estetica" in _norm_text(p)]
+        if "colorcoding" in norm_caso or "color" in norm_caso:
+            elegidas = elegidas or [p for p in partes if "color" in _norm_text(p)]
+        if elegidas:
+            return _truncar_obs("; ".join(elegidas[:2]), 220)
+    n = automation.get("fallidos") or 0
+    if n:
+        return f"«{caso}»: revisar layout de la hoja ({n} hallazgo(s) automáticos en visuales)."
+    return f"«{caso}»: revisar layout o comportamiento esperado en la hoja."
+
+
+def _truncar_obs(texto: str, max_len: int = 220) -> str:
     t = (texto or "").strip().replace("\n", " ")
     if len(t) <= max_len:
         return t
@@ -643,36 +832,37 @@ def _observaciones_para_desarrollo(
     inferred: dict[str, str],
 ) -> str:
     capa = automation.get("capa") or ""
-    detalle = _truncar_obs(automation.get("detalle") or "")
     tablero = (case.get("tablero") or "").strip()
+    caso = (case.get("caso_de_prueba") or "").strip()
 
     if capa == "filtros":
-        nombre = automation.get("nombre_filtro") or ""
-        base = f"[{tablero}] Filtro «{nombre}»: opciones del slicer no coinciden con scope/SQL."
-        return _truncar_obs(f"{base} {detalle}" if detalle else base)
+        nombre = automation.get("nombre_filtro") or caso.replace("Validar filtro de ", "")
+        resumen = _resumir_detalle_filtro(automation.get("detalle") or "")
+        return _truncar_obs(f"«{caso}» (filtro «{nombre}», hoja «{tablero}»): {resumen}")
 
     if capa == "indicadores":
-        kpi = automation.get("kpi_id") or ""
-        base = f"[{tablero}] KPI «{kpi}»: valor del tablero distinto del oráculo SQL mensual."
-        return _truncar_obs(f"{base} {detalle}" if detalle else base)
+        det = _sanitizar_texto_planilla((automation.get("detalle") or "").strip())
+        if det and len(det) < 180 and "faltan opciones" not in det.lower():
+            extra = det
+        else:
+            extra = "El valor difiere del cálculo de referencia del periodo."
+        return _truncar_obs(f"«{caso}» (hoja «{tablero}»): {extra}")
 
     if capa == "visuales":
-        lectura = automation.get("lectura_qa") or case.get("caso_de_prueba") or ""
-        base = f"[{tablero}] Visual: {lectura}."
-        return _truncar_obs(f"{base} {detalle}" if detalle else base)
+        extra = _detalle_visual_caso(automation, caso)
+        if extra:
+            return _truncar_obs(f"«{caso}» (hoja «{tablero}»): {extra}")
+        return _truncar_obs(f"«{caso}» (hoja «{tablero}»): el elemento no cumple lo esperado.")
 
     if capa == "visuales_resumen":
-        n = automation.get("fallidos") or 0
-        return (
-            f"[{tablero}] Revisión de layout: {n} visual(es) con fallo en la hoja. "
-            f"Detalle en test-evidence/visuales-por-hoja (buscar la hoja {tablero})."
-        )
+        return _truncar_obs(_fallos_resumen_para_caso(caso, automation))
 
     if capa == "alcance":
-        base = f"[{tablero}] Indicadores visibles no alineados al contrato (scope-kpis)."
-        return _truncar_obs(f"{base} {detalle}" if detalle else base)
+        det = _sanitizar_texto_planilla((automation.get("detalle") or "").strip())
+        extra = _truncar_obs(det, 120) if det else "Indicadores visibles fuera del alcance acordado."
+        return _truncar_obs(f"«{caso}» (hoja «{tablero}»): {extra}")
 
-    return _truncar_obs(detalle or "Fallo en verificación automática del tablero.")
+    return _truncar_obs(f"«{caso}» (hoja «{tablero}»): revisar el comportamiento esperado.")
 
 
 def _revision_from_run(
@@ -682,6 +872,7 @@ def _revision_from_run(
     binding: dict[str, Any] | None,
     inferred: dict[str, str],
     fecha: str,
+    caps: dict[str, Any] | None = None,
 ) -> dict[str, str]:
     block = _empty_revision_block()
     if not automation:
@@ -696,7 +887,7 @@ def _revision_from_run(
 
     if veredicto == "fallido":
         block["estado"] = veredicto_to_estado(veredicto)
-        tipo, prioridad, controlado = _error_metadata_for_capa(capa)
+        tipo, prioridad, controlado = _error_metadata_for_capa(capa, caps=caps)
         block["tipo_error"] = tipo
         block["prioridad"] = prioridad
         block["controlado_por"] = controlado
@@ -760,6 +951,7 @@ def export_planilla(
     visuales: dict[str, Any] | None = None,
     tablero_aliases: dict[str, str] | None = None,
     planilla_bindings: dict[str, Any] | None = None,
+    board_qa_root: Path | None = None,
     modo: str,
     revision_index: int = 1,
     nombre_hoja_nueva: str | None = None,
@@ -771,13 +963,27 @@ def export_planilla(
     if modo not in ("recorrida", "regresion"):
         raise ContractError("modo debe ser recorrida o regresion.")
 
-    catalog_work = augment_catalog_with_harness(
-        catalog,
-        kpi,
-        filtros,
-        visuales,
-        tablero_aliases=tablero_aliases,
-    )
+    caps_root = board_qa_root
+    if caps_root is None and catalog.get("_board_qa_root"):
+        caps_root = Path(str(catalog["_board_qa_root"]))
+
+    def _caps() -> dict[str, Any]:
+        return _load_revision_capsules(caps_root)
+
+    if modo == "recorrida":
+        catalog_work = dict(catalog)
+        catalog_work["cases"] = sorted(
+            [c for c in (catalog.get("cases") or []) if not c.get("catalog_nuevo")],
+            key=lambda c: int(c.get("sheet_row") or 0),
+        )
+    else:
+        catalog_work = augment_catalog_with_harness(
+            catalog,
+            kpi,
+            filtros,
+            visuales,
+            tablero_aliases=tablero_aliases,
+        )
     index = build_automation_index(kpi, filtros, visuales)
     fecha = date.today().strftime("%d/%m/%Y")
     cases_in = catalog_work.get("cases") or []
@@ -809,7 +1015,7 @@ def export_planilla(
 
     filas_out: list[dict[str, Any]] = []
     patches: list[dict[str, Any]] = []
-    caps_estado = _load_revision_capsules()["estado"]
+    caps_estado = _caps()["estado"]
     counts = {
         caps_estado["aprobado"]: 0,
         caps_estado["error"]: 0,
@@ -839,14 +1045,37 @@ def export_planilla(
         inferred = _infer_pasos_y_resultado(case, binding, auto)
         catalog_patches_all.extend(_catalog_field_patches(case, inferred))
         case_for_row = {**case, **inferred}
-        if inferred.get("tipo_prueba_inferido") and not case_for_row.get("tipo_prueba"):
-            case_for_row["tipo_prueba"] = inferred["tipo_prueba_inferido"]
+        allowed_tipos = set(_caps().get("tipo_prueba") or [])
+        prev_tipo = (case.get("tipo_prueba") or "").strip()
+        capa_bind = (binding or {}).get("capa") or (auto or {}).get("capa")
+        tipo_norm = _normalizar_tipo_prueba_catalogo(
+            case_for_row.get("tipo_prueba"),
+            capa=str(capa_bind) if capa_bind else None,
+        )
+        if not (case.get("tipo_prueba") or "").strip() and inferred.get("tipo_prueba_inferido"):
+            tipo_norm = inferred["tipo_prueba_inferido"]
+        case_for_row["tipo_prueba"] = tipo_norm
+        if (
+            tipo_norm
+            and prev_tipo not in allowed_tipos
+            and case.get("sheet_row")
+            and (auto is not None or binding)
+        ):
+            catalog_patches_all.append(
+                {
+                    "sheet_row": int(case["sheet_row"]),
+                    "col": "F",
+                    "field": "tipo_prueba",
+                    "value": tipo_norm,
+                }
+            )
         revision = _revision_from_run(
             auto,
             case=case_for_row,
             binding=binding,
             inferred=inferred,
             fecha=fecha,
+            caps=_caps(),
         )
 
         prev_block = None
@@ -956,6 +1185,12 @@ def export_planilla(
         "catalog_field_patches": catalog_patches_all,
         "catalog_augmented": catalog_work.get("catalog_augmented"),
         "publicar_solo_automatizados": True,
+        "limpiar_bloques_revision_en_recorrida": bool(
+            (_caps().get("politica") or {}).get(
+                "recorrida_limpiar_revision_antes_de_publicar"
+            )
+            and modo == "recorrida"
+        ),
     }
     try:
         from .planilla_publish import build_publish_plan

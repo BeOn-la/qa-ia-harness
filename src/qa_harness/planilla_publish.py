@@ -2,7 +2,13 @@ from __future__ import annotations
 
 from typing import Any
 
-from .planilla_qa import REVISION_FIELD_NAMES, REVISION_WIDTH, _col_letter, revision_start_col
+from .planilla_qa import (
+    CORRIDA_REPO_REVISION_1_START_COL,
+    REVISION_FIELD_NAMES,
+    REVISION_WIDTH,
+    _col_letter,
+    revision_start_col,
+)
 
 
 def build_publish_plan(
@@ -98,6 +104,21 @@ def build_publish_plan(
         write_start = rev_index
     else:
         write_start = rev_index
+        if export.get("limpiar_bloques_revision_en_recorrida"):
+            clear_end_col = _col_letter(revision_start_col(2) + REVISION_WIDTH - 1)
+            pasos.append(
+                {
+                    "orden": len(pasos) + 1,
+                    "herramienta_mcp": "batch_clear_values",
+                    "argumentos": {
+                        "spreadsheetId": spreadsheet_id,
+                        "ranges": [
+                            f"'{target_sheet}'!G{first_row}:{clear_end_col}{last_row}",
+                        ],
+                    },
+                    "nota": "Recorrida completa: limpia Revision 1 y 2 antes de volver a cargar.",
+                }
+            )
 
     solo_auto = bool(export.get("publicar_solo_automatizados", modo == "recorrida"))
 
@@ -286,6 +307,144 @@ def _revision_write_batches(
             flush()
     flush()
     return batches
+
+
+def build_corrida_repo_publish_plan(
+    *,
+    spreadsheet_id: str,
+    template_sheet_id: int | None,
+    template_sheet_title: str,
+    target_sheet_title: str,
+    data_row_count: int,
+    adc_batch_ranges: list[str],
+    board_qa_tools_relative: str = "tools",
+) -> dict[str, Any]:
+    """
+    Plan para pestaña Corrida repo (grid A–G + revisiones, columna E Resultado Obtenido).
+    Subida de datos preferida: ADC (upload_corrida_repo_batches.py), sin embed de values en el plan.
+    """
+    last_row = max(data_row_count, 3)
+    end_col = _col_letter(
+        CORRIDA_REPO_REVISION_1_START_COL + REVISION_WIDTH * 2 - 1
+    )
+    pasos: list[dict[str, Any]] = []
+    notas = [
+        "Corrida repo: orden de hojas Alcance → KPI → Filtros → Visuales; IDs 0001… sin catálogo manual.",
+        "Columna E = Resultado Obtenido; revisión 1 en H–R, revisión 2 en S–AC.",
+        "Subida preferida: python tools/upload_corrida_repo_batches.py (ADC, 2–3 lotes, RAW).",
+        "Fallback MCP (sin ADC): make_corrida_repo_batches.py --profile mcp-micro y write_range por chunk_*.json.",
+    ]
+    if template_sheet_id is None:
+        notas.append(
+            "Falta template_sheet_id en board.yml → planilla_qa; usar get_spreadsheet."
+        )
+    pasos.append(
+        {
+            "orden": 1,
+            "herramienta_mcp": "copy_sheet_to_another_spreadsheet",
+            "argumentos": {
+                "spreadsheetId": spreadsheet_id,
+                "sheetId": template_sheet_id,
+                "destinationSpreadsheetId": spreadsheet_id,
+            },
+            "resultado_esperado": "Nueva pestaña 'Copy of …' al final.",
+        }
+    )
+    pasos.append(
+        {
+            "orden": 2,
+            "herramienta_mcp": "rename_sheet_tab",
+            "argumentos": {
+                "spreadsheetId": spreadsheet_id,
+                "sheetId": "{{sheetId_de_la_copia}}",
+                "title": target_sheet_title,
+            },
+            "nota": "Título sin / (ej. Corrida repo 16-10-26).",
+        }
+    )
+    pasos.append(
+        {
+            "orden": 3,
+            "herramienta_mcp": "insert_rows_or_columns",
+            "argumentos": {
+                "spreadsheetId": spreadsheet_id,
+                "sheetId": "{{sheetId_pestaña_destino}}",
+                "dimension": "COLUMNS",
+                "position": 5,
+                "count": 1,
+                "inheritBefore": True,
+            },
+            "nota": "Inserta columna E (Resultado Obtenido) antes de Tablero.",
+        }
+    )
+    pasos.append(
+        {
+            "orden": 4,
+            "herramienta_mcp": "batch_clear_values",
+            "argumentos": {
+                "spreadsheetId": spreadsheet_id,
+                "ranges": [f"'{target_sheet_title}'!A3:{end_col}{last_row}"],
+            },
+        }
+    )
+    pasos.append(
+        {
+            "orden": 5,
+            "herramienta_mcp": "(script local)",
+            "argumentos": {
+                "comandos": [
+                    f"cd {board_qa_tools_relative} && python make_corrida_repo_batches.py --profile adc",
+                    "python upload_corrida_repo_batches.py",
+                ],
+                "requisito": "gcloud auth application-default login",
+                "lotes_adc": adc_batch_ranges,
+            },
+            "nota": (
+                "Sube el mismo grid que batches.json (valueInputOption=RAW). "
+                "No incluir values en el chat del agente."
+            ),
+        }
+    )
+    pasos.append(
+        {
+            "orden": 6,
+            "herramienta_mcp": "(script local)",
+            "argumentos": {
+                "comando": (
+                    f"python {board_qa_tools_relative}/apply_corrida_sheet_from_template.py "
+                    f'--target "{target_sheet_title}" --data-rows {last_row}'
+                ),
+            },
+            "nota": "Extiende cápsulas (tipo H, revisión I:S) y formato fecha auditoría; requiere ADC Google.",
+        }
+    )
+    return {
+        "schema_version": 1,
+        "modo": "corrida_repo",
+        "spreadsheet_id": spreadsheet_id,
+        "template_sheet_title": template_sheet_title,
+        "template_sheet_id": template_sheet_id,
+        "target_sheet_title": target_sheet_title,
+        "fila_desde": 1,
+        "fila_hasta": last_row,
+        "columnas_fijas": "A–G (incluye Resultado Obtenido en E)",
+        "pasos": pasos,
+        "notas": notas,
+        "subida_datos": {
+            "preferida": "adc",
+            "script": "tools/upload_corrida_repo_batches.py",
+            "batch_ranges": adc_batch_ranges,
+        },
+        "subida_datos_fallback_mcp": {
+            "generar": "python tools/make_corrida_repo_batches.py --profile mcp-micro",
+            "archivos": "test-evidence/_corrida_repo_sheet/micro_upload/chunk_*.json",
+            "nota": "Solo si no hay ADC; leer cada JSON y write_range sin truncar values.",
+        },
+        "artefactos": {
+            "grid": "test-evidence/_corrida_repo_sheet/grid.json",
+            "batches_adc": "test-evidence/_corrida_repo_sheet/batches.json",
+        },
+    }
 
 
 def _mapeo_capas_doc() -> list[dict[str, str]]:

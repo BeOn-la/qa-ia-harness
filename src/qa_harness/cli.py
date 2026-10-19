@@ -161,7 +161,12 @@ def main(argv=None):
     sub.add_argument("--harness-root", type=Path)
     sub.add_argument("--board")
     sub.add_argument("--ref")
-    sub.add_argument("--modo", required=True, choices=("recorrida", "regresion"))
+    sub.add_argument(
+        "--modo",
+        required=True,
+        choices=("recorrida", "regresion", "corrida_repo"),
+        help="corrida_repo: grid por hoja + columna Resultado Obtenido (sin catálogo manual)",
+    )
     sub.add_argument("--revision", type=int, default=1)
     sub.add_argument("--hoja-planilla")
     sub.add_argument("--nombre-hoja-nueva")
@@ -296,6 +301,7 @@ def main(argv=None):
                 visuales=visuales,
                 tablero_aliases=tablero_aliases or None,
                 planilla_bindings=planilla_bindings,
+                board_qa_root=catalog_dir.parent,
                 modo=args.modo,
                 revision_index=args.revision,
                 nombre_hoja_nueva=args.nombre_hoja_nueva,

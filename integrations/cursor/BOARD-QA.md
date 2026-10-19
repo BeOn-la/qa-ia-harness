@@ -6,7 +6,7 @@ Los comandos en `.cursor/commands/` son **genéricos**. El tablero activo se res
 
 Arrastrá al chat la carpeta **`.Report`**, el **`.pbip`** o el **`.SemanticModel`** del tablero, por ejemplo:
 
-`@beon-pbi/Softys/Softys (1).Report`
+`@beon-pbi/Softys/Softys.Report`
 
 Eso va en `{{args}}` del comando. El agente **no debe asumir** el tablero: primero resuelve identidad y versión.
 
@@ -67,7 +67,7 @@ Comandos planos (sin desglose por hoja, legado): `pbi-kpi-month`, `pbi-filter-sc
 
 Salida: JSON (`--output`) con **`publish_plan`** (pasos MCP ordenados). Ver `PUBLICAR-PLANILLA.md` y `/PublicarPlanilla`. No importar CSV en Drive (rompe cápsulas).
 
-`qa-harness corrida-planilla --profile staging --ref "<ruta>" --modo recorrida|regresion` ejecuta las tres capas y escribe en `test-evidence/`.
+`qa-harness corrida-planilla --profile staging --ref "<ruta>" --modo recorrida|regresion|corrida_repo` ejecuta las tres capas y escribe en `test-evidence/` (`corrida_repo` incluye `publish_plan` para subir la pestaña completa por hoja).
 
 ### Interpretación de cada hoja (consumidor)
 

@@ -15,7 +15,7 @@ Definidos en **`.cursor/commands/`** de este repo. Son **multi-tablero**: el cli
 | `/RevisionManual` | Lo que queda fuera de lo automático |
 | `/PublicarPlanilla` | Corrida KPI+filtros+visuales, export y **subida a Google Sheets** (plantilla con cápsulas) |
 
-Uso típico: workspace con **qa-ia-harness** + repo consumidor (ej. beon-pbi). Invocar `/CalculoKPI` y arrastrar `@beon-pbi/Softys/Softys (1).Report` en el mensaje. El agente ejecuta `qa-harness resolve-board --ref "…"` para obtener `board_id` y `version_id`.
+Uso típico: workspace con **qa-ia-harness** + repo consumidor (ej. beon-pbi). Invocar `/CalculoKPI` y arrastrar `@beon-pbi/Softys/Softys.Report` en el mensaje. El agente ejecuta `qa-harness resolve-board --ref "…"` para obtener `board_id` y `version_id`.
 
 ## Flujo general
 

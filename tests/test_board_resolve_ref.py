@@ -15,14 +15,14 @@ class BoardResolveRefTests(unittest.TestCase):
         qa = self.consumer / "Softys" / "qa"
         qa.mkdir(parents=True)
         (qa / "board.yml").write_text(
-            "version_id: test-v1\nlabel: Tablero prueba\npbip_manifest: Softys (1).pbip\n",
+            "version_id: test-v1\nlabel: Tablero prueba\npbip_manifest: Softys.pbip\n",
             encoding="utf-8",
         )
         bundle = self.consumer / "Softys"
         bundle.mkdir(parents=True, exist_ok=True)
-        (bundle / "Softys (1).pbip").write_text("{}", encoding="utf-8")
-        (bundle / "Softys (1).Report").mkdir()
-        (bundle / "Softys (1).SemanticModel").mkdir()
+        (bundle / "Softys.pbip").write_text("{}", encoding="utf-8")
+        (bundle / "Softys.Report").mkdir()
+        (bundle / "Softys.SemanticModel").mkdir()
 
         self.config = {
             "default_board": "softys",
@@ -31,7 +31,7 @@ class BoardResolveRefTests(unittest.TestCase):
                     "label": "Softys cfg",
                     "consumer_repo_root": str(self.consumer.relative_to(self.root)),
                     "board_qa_root": str((qa).relative_to(self.root)),
-                    "pbip_relative": "Softys/Softys (1).pbip",
+                    "pbip_relative": "Softys/Softys.pbip",
                     "framework_root": ".",
                 }
             },
@@ -44,12 +44,12 @@ class BoardResolveRefTests(unittest.TestCase):
             shutil.rmtree(self.consumer, ignore_errors=True)
 
     def test_resolve_from_report_drag(self) -> None:
-        ref = f"@{self.consumer.name}/Softys/Softys (1).Report"
+        ref = f"@{self.consumer.name}/Softys/Softys.Report"
         bid, _entry, ctx = resolve_board_from_ref(self.root, self.config, ref)
         self.assertEqual(bid, "softys")
         self.assertEqual(ctx["version_id"], "test-v1")
         self.assertEqual(ctx["resolved_via"], "path_ref")
-        self.assertIn("Softys (1).Report", ctx["report_path"])
+        self.assertIn("Softys.Report", ctx["report_path"])
 
     def test_resolve_board_id_token(self) -> None:
         bid, entry, ctx = resolve_board_from_ref(self.root, self.config, "softys")

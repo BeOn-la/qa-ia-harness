@@ -6,18 +6,31 @@
     "error": "Error",
     "sin_revisar": "Sin revisar"
   },
+  "tipo_prueba": ["Filtros", "KPI/Calculos", "Visuales"],
+  "prioridad": ["Alta", "Media", "Baja"],
+  "controlado_por": ["Motrel Gabriel"],
   "tipo_error_por_capa": {
     "filtros": "Datos",
     "indicadores": "Cálculo",
     "visuales": "Visual",
+    "visuales_resumen": "Visual",
     "alcance": "Funcional"
   },
   "prioridad_error_default": "Alta",
-  "controlado_por_error_default": "Gabriel Motrel",
+  "controlado_por_error_default": "Motrel Gabriel",
+  "tipo_prueba_por_capa": {
+    "filtros": "Filtros",
+    "indicadores": "KPI/Calculos",
+    "visuales": "Visuales",
+    "visuales_resumen": "Visuales",
+    "alcance": "KPI/Calculos"
+  },
   "politica": {
     "observaciones_solo_en_error": true,
     "columna_observaciones_para_desarrollo": "observaciones_qa",
     "limpiar_campos_error_si_aprobado": true,
-    "estados_error_previos": ["Error", "Rechazado", "Fallido"]
+    "estados_error_previos": ["Error", "Rechazado", "Fallido"],
+    "texto_planilla_agnostico_harness": true,
+    "recorrida_limpiar_revision_antes_de_publicar": true
   }
 }

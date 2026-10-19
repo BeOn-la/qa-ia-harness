@@ -88,5 +88,76 @@ class VisualInterpretationTests(unittest.TestCase):
         self.assertIn("Listed", row["lectura_qa"])
 
 
+    def test_image_link_home(self):
+        catalog: list[dict] = []
+        image = PageVisualEnriched(
+            visual_id="homeico",
+            visual_type="image",
+            query_refs=(),
+            native_refs=(),
+            x=20,
+            y=0,
+            height=45,
+            width=50,
+            bookmark_ids=(),
+            navigation_page_ids=("db20709b2ae5db63007a",),
+            action_button_kind=None,
+            has_visual_link=True,
+            visual_link_kind="page_navigation",
+        )
+        row = evaluate_visual_contextual(
+            visual=image,
+            page_display_name="KPI Analysis",
+            row_peers=[image],
+            page_spec=None,
+            contracted=set(),
+            expected_on_page=set(),
+            strict_contract=False,
+            catalog=catalog,
+            filter_verdicts={},
+            oracle_by_kpi={},
+            contract_names={},
+            bookmark_labels={},
+            bookmark_sections={},
+            page_id_to_name={"db20709b2ae5db63007a": "Home"},
+        )
+        self.assertEqual(row["rol_interpretado"], "navegación a Home")
+        self.assertEqual(row["veredicto"], "correcto")
+
+    def test_action_back(self):
+        btn = PageVisualEnriched(
+            visual_id="back1",
+            visual_type="actionButton",
+            query_refs=(),
+            native_refs=(),
+            x=70,
+            y=0,
+            height=45,
+            width=70,
+            bookmark_ids=(),
+            navigation_page_ids=(),
+            action_button_kind=None,
+            has_visual_link=True,
+            visual_link_kind="back",
+        )
+        row = evaluate_visual_contextual(
+            visual=btn,
+            page_display_name="KPI Analysis",
+            row_peers=[btn],
+            page_spec=None,
+            contracted=set(),
+            expected_on_page=set(),
+            strict_contract=False,
+            catalog=[],
+            filter_verdicts={},
+            oracle_by_kpi={},
+            contract_names={},
+            bookmark_labels={},
+            bookmark_sections={},
+            page_id_to_name={},
+        )
+        self.assertEqual(row["rol_interpretado"], "navegación atrás")
+
+
 if __name__ == "__main__":
     unittest.main()

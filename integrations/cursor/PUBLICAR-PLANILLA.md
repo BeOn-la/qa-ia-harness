@@ -18,7 +18,9 @@ La planilla **no se regenera desde el PBIP**: el catálogo (`manual-cases/planil
 |-------|-------------------|
 | **Estado** | `Aprobado` si la corrida automática OK; `Error` si falló (no usar «Rechazado»). |
 | **Tipo de error**, **Prioridad**, **Controlado por** | Solo si Estado = `Error`, con valores de cápsula (ej. Datos / Alta / Desarrollo). |
-| **Observaciones QA** | Solo en **Error**: texto explicativo para desarrollo (sin asumir conocimiento del harness). |
+| **Observaciones QA** | Solo en **Error**: **un comentario por fila/caso** (sin listas largas de filtros de otra hoja ni volcado de toda la página). Sin rutas de repos ni artefactos del harness. |
+| **Tipo de prueba** (F) | Solo valores de cápsula: `Filtros`, `KPI/Calculos`, `Visuales` (no inventar tipos). |
+| **Prioridad / Controlado por** | Solo valores listados en `planilla_revision_capsules.json` (`prioridad`, `controlado_por`). |
 | **Observaciones Desarrollo** | Vacío en automático (lo completa el dev al corregir). |
 | **Fecha de auditoría** | Fecha de la corrida automática. |
 | **Pasos a seguir** / **Resultado esperado** (C/D) | Solo si la celda está **vacía** en catálogo: se infiere texto y se publica con `publish_plan` (no pisa texto manual). |
@@ -42,7 +44,7 @@ El documento [QA - Tablero softys](https://docs.google.com/spreadsheets/d/1IiB3W
 
 **Regresión:** duplicar la pestaña plantilla con `copy_sheet_to_another_spreadsheet` (mismo spreadsheet), renombrar, limpiar valores de revisión, escribir resultados.
 
-**Recorrida:** escribir solo el bloque `Revision N` en filas con automatización.
+**Recorrida:** opcionalmente `batch_clear_values` en columnas de revisión (G en adelante) y luego escribir filas automatizadas (`limpiar_bloques_revision_en_recorrida` en el export). No crea pestaña nueva.
 
 Nunca pegar CSV encima de la plantilla en Drive.
 
@@ -75,6 +77,28 @@ O: `python tools/pull_planilla_catalog_from_sheets.py` (tras el paso 2).
 Incluir `template_sheet_id` en `source` del catálogo (desde `get_spreadsheet`).  
 Alias planilla ↔ informe: `{board_qa_root}/planilla-tablero-aliases.json` (ver `board.yml`).
 
+## Modo Corrida repo (evidencia por hoja, sin catálogo manual)
+
+Cuando la planilla debe reflejar **toda** la corrida (alcance + KPI + filtros + visuales por hoja del informe), sin depender de `planilla-catalog.json`:
+
+| Paso | Qué hace |
+|------|----------|
+| CLI | `qa-harness corrida-planilla --modo corrida_repo --ref …` |
+| Grid | `{board_qa}/tools/build_corrida_repo_sheet.py` → `_corrida_repo_sheet/grid.json` (columna **E** = Resultado Obtenido) |
+| Lotes ADC (preferido) | `make_corrida_repo_batches.py --profile adc` → `batches.json` (2–3 lotes, ~10k celdas c/u) |
+| Subida datos | `upload_corrida_repo_batches.py` (ADC, **sin** pasar `values` por el agente → pocos tokens) |
+| Fallback MCP | `--profile mcp-micro` → `micro_upload/chunk_*.json` solo si no hay ADC |
+| `publish_plan` | MCP: copiar plantilla, columna E, limpiar → **script ADC** → `apply_corrida_sheet_from_template.py` |
+
+Requisitos en `board_qa_root`: `tools/build_corrida_repo_sheet.py`, `tools/obs_corrida_sheet.py`, `alcance-ajustes-planilla.json` (si aplica), `board.yml` → `planilla_qa.spreadsheet_id` y `template_sheet_id`.
+
+Política de texto: **Resultado esperado** = “debe mostrar”; **Resultado obtenido** = lo visto en tablero; periodo del oráculo en ambos cuando corresponda.
+
 ## CLI única
 
-`qa-harness corrida-planilla` ejecuta KPI + filtros + visuales + `export-planilla` y escribe JSON en `test-evidence/` (ver ayuda del comando).
+`qa-harness corrida-planilla` ejecuta KPI + filtros + visuales y:
+
+- `recorrida` / `regresion` → `export-planilla` + `publish_plan` catálogo
+- `corrida_repo` → grid + `publish_plan` corrida repo
+
+Salida JSON en `test-evidence/` (ver ayuda del comando).

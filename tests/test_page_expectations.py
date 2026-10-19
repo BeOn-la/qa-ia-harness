@@ -40,6 +40,32 @@ class PageExpectationsTests(unittest.TestCase):
         self.assertEqual(r["veredicto_alcance"], "no aplica")
 
 
+    def test_home_alcance_ajustes_planilla(self):
+        spec = {
+            "tipo_hoja": "resumen_contrato",
+            "interpretacion": "Resumen",
+            "validacion_alcance": "resumen_estricto_contrato",
+            "indicadores_esperados": "todos_los_del_contrato",
+        }
+        ajustes = {
+            "Home": {
+                "no_exigir_visibles": ["price-check-compliance"],
+                "no_marcar_fuera_contrato": ["description-compliance"],
+            }
+        }
+        contracted = {"price-check-compliance", "description-compliance", "assortment"}
+        r = evaluate_scope_on_page(
+            spec=spec,
+            contracted=contracted,
+            shown_kpi_ids={"assortment", "description-compliance"},
+            catalog_ids=contracted,
+            display_name="Home",
+            alcance_ajustes_por_hoja=ajustes,
+        )
+        self.assertEqual(r["veredicto_alcance"], "correcto")
+        self.assertEqual(r["indicadores_contrato_faltantes_en_hoja"], [])
+        self.assertEqual(r["indicadores_fuera_de_contrato_en_hoja"], [])
+
     def test_audit_page_names_mismatch(self):
         exp = {"hojas": {"Home": {}, "Otra": {}}}
         r = audit_page_names(exp, ["Home", "Pricing"])

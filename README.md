@@ -85,17 +85,28 @@ Salida JSON en stdout; exit **0** si todos los `compare_status` son `pass`. Opci
 
 Comandos Cursor (**multi-tablero**): `/CalculoKPI`, `/CalculoFiltro`, `/CalculoScope`, `/CalculoVisuales`, `/RevisionManual` en `.cursor/commands/`. Arrastrar `.Report` / `.pbip` al invocar; resolver con `qa-harness resolve-board --ref "<ruta>"`. Perfiles en `.qa-profiles.local.json` → `boards`. Ver `integrations/cursor/BOARD-QA.md`.
 
+## Mapa del repositorio
+
+| Carpeta | README |
+|---------|--------|
+| `src/` | [src/README.md](src/README.md) — paquete `qa_harness` |
+| `docs/` | [docs/README.md](docs/README.md) — contrato, método, **arquitectura (diagramas)** |
+| `tools/` | [tools/README.md](tools/README.md) — perfiles SQL y planilla |
+| `tests/` | [tests/README.md](tests/README.md) |
+| `schemas/` | [schemas/README.md](schemas/README.md) |
+| `examples/` | [examples/README.md](examples/README.md) |
+| `integrations/` | [integrations/README.md](integrations/README.md) |
+| `templates/` | [templates/README.md](templates/README.md) |
+| `config/` | [config/README.md](config/README.md) |
+| `.cursor/` | [.cursor/README.md](.cursor/README.md) — comandos `/Calculo*` |
+
 ## Documentación
 
+- [Arquitectura y flujos (Mermaid)](docs/architecture.md)
 - [Contrato y CLI](docs/contract.md)
 - [Método de QA y QRD](docs/methodology.md)
 - [Operación SQL](docs/sql.md)
+- [Política SQL](docs/sql-security.md)
 - [Límites de confianza](docs/security.md)
 - [Integración con Cursor](integrations/cursor/README.md)
 - [Plan de entrega y validación](docs/implementation-plan.md)
-# SQL access security
-
-Real SQL integrations must declare `read_only` or `isolated_write`; the latter
-requires `--allow-isolated-write` and a database principal limited to fixture
-data. Read [SQL security policy](docs/sql-security.md) before using local or
-staging credentials.

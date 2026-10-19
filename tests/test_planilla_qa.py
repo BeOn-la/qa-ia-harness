@@ -74,9 +74,10 @@ class TestPlanillaQa(unittest.TestCase):
         self.assertEqual(filtro["estado"], "Error")
         self.assertEqual(filtro["tipo_error"], "Datos")
         self.assertEqual(filtro["prioridad"], "Alta")
-        self.assertEqual(filtro["controlado_por"], "Gabriel Motrel")
-        self.assertIn("Filtro", filtro["observaciones_qa"])
-        self.assertIn("scope/SQL", filtro["observaciones_qa"])
+        self.assertEqual(filtro["controlado_por"], "Motrel Gabriel")
+        self.assertIn("validar filtro de etailer", filtro["observaciones_qa"].lower())
+        self.assertIn("diff", filtro["observaciones_qa"].lower())
+        self.assertNotIn("test-evidence", filtro["observaciones_qa"].lower())
         kpi_rev = by_caso["Validar KPI Assortment"]["revision"]
         self.assertEqual(kpi_rev["observaciones_qa"], "")
         self.assertEqual(len(out["sheets_patch"]), 2)

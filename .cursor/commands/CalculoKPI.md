@@ -4,7 +4,7 @@ description: Oráculos SQL mensuales (from-dax vs from-definition) y resumen de 
 
 # /CalculoKPI
 
-Leer `integrations/cursor/BOARD-QA.md`. **Tablero:** arrastrar `.Report` / `.pbip` / `.SemanticModel` en `{{args}}` (ej. `@beon-pbi/Softys/Softys (1).Report`).
+Leer `integrations/cursor/BOARD-QA.md`. **Tablero:** arrastrar `.Report` / `.pbip` / `.SemanticModel` en `{{args}}` (ej. `@beon-pbi/Softys/Softys.Report`).
 
 ## Resolver tablero (obligatorio)
 
