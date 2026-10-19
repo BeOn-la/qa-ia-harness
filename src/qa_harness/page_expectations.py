@@ -68,14 +68,25 @@ def load_alcance_ajustes_planilla(board_qa_root: Path) -> dict[str, Any]:
     return data.get("por_hoja") if isinstance(data.get("por_hoja"), dict) else {}
 
 
+def load_alcance_ajustes_document(board_qa_root: Path) -> dict[str, Any]:
+    path = board_qa_root / "alcance-ajustes-planilla.json"
+    if not path.is_file():
+        return {}
+    data = json.loads(path.read_text(encoding="utf-8-sig"))
+    return data if isinstance(data, dict) else {}
+
+
 def _aplicar_ajustes_alcance(
     display_name: str,
     faltantes: list[str],
     fuera: list[str],
     ajustes_por_hoja: dict[str, Any],
+    extra_no_exigir: set[str] | None = None,
 ) -> tuple[list[str], list[str]]:
     reglas = ajustes_por_hoja.get(display_name) or {}
     no_exigir = set(reglas.get("no_exigir_visibles") or [])
+    if extra_no_exigir:
+        no_exigir |= extra_no_exigir
     no_fuera = set(reglas.get("no_marcar_fuera_contrato") or [])
     f = [x for x in faltantes if x not in no_exigir]
     u = [x for x in fuera if x not in no_fuera]
@@ -119,6 +130,7 @@ def evaluate_scope_on_page(
     catalog_ids: set[str],
     display_name: str = "",
     alcance_ajustes_por_hoja: dict[str, Any] | None = None,
+    indicadores_no_habilitados_ui: set[str] | None = None,
 ) -> dict[str, Any]:
     """Validación de alcance según el rol de la hoja (contrato vs visuales)."""
     if spec is None:
@@ -149,7 +161,11 @@ def evaluate_scope_on_page(
     fuera = sorted((shown_kpi_ids & catalog_ids) - contracted)
     if alcance_ajustes_por_hoja and display_name:
         faltantes, fuera = _aplicar_ajustes_alcance(
-            display_name, faltantes, fuera, alcance_ajustes_por_hoja
+            display_name,
+            faltantes,
+            fuera,
+            alcance_ajustes_por_hoja,
+            extra_no_exigir=indicadores_no_habilitados_ui,
         )
 
     if modo == "resumen_estricto_contrato":

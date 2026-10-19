@@ -124,6 +124,40 @@ class VisualInterpretationTests(unittest.TestCase):
         self.assertEqual(row["rol_interpretado"], "navegación a Home")
         self.assertEqual(row["veredicto"], "correcto")
 
+    def test_title_dinamico_no_falla(self):
+        card = PageVisualEnriched(
+            visual_id="t1",
+            visual_type="card",
+            query_refs=("DAX Measures.Titulo dinamico",),
+            native_refs=("Titulo dinamico",),
+            x=0,
+            y=0,
+            height=40,
+            width=80,
+            bookmark_ids=(),
+            navigation_page_ids=(),
+            action_button_kind=None,
+            has_visual_link=False,
+        )
+        row = evaluate_visual_contextual(
+            visual=card,
+            page_display_name="KPI Analysis",
+            row_peers=[card],
+            page_spec=None,
+            contracted=set(),
+            expected_on_page=set(),
+            strict_contract=False,
+            catalog=[],
+            filter_verdicts={},
+            oracle_by_kpi={},
+            contract_names={},
+            bookmark_labels={},
+            bookmark_sections={},
+            page_id_to_name={},
+        )
+        self.assertEqual(row["rol_interpretado"], "título dinámico del detalle")
+        self.assertEqual(row["veredicto"], "correcto")
+
     def test_action_back(self):
         btn = PageVisualEnriched(
             visual_id="back1",

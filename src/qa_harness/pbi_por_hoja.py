@@ -21,9 +21,15 @@ from .page_expectations import (
     contracted_kpi_ids,
     evaluate_scope_on_page,
     expectation_for_page,
+    expected_kpi_ids_on_page,
+    load_alcance_ajustes_document,
     load_alcance_ajustes_planilla,
     load_page_expectations,
     load_scope_kpis,
+)
+from .planilla_alcance import (
+    indicadores_no_habilitados_ui,
+    kpi_tratado_como_no_visible,
 )
 from .visual_interpretation import (
     cluster_visuals_by_row,
@@ -32,8 +38,8 @@ from .visual_interpretation import (
     load_bookmark_active_section,
     load_bookmark_labels,
     load_page_id_to_name,
+    postprocess_page_visual_cases,
 )
-from .page_expectations import expected_kpi_ids_on_page
 from .sql_profiles import harness_root, load_local_profiles_config
 
 
@@ -71,6 +77,8 @@ def run_kpi_por_hoja(
     contracted = contracted_kpi_ids(scope_doc)
     page_expectations = load_page_expectations(board_path)
     alcance_ajustes = load_alcance_ajustes_planilla(board_path)
+    alcance_doc = load_alcance_ajustes_document(board_path)
+    no_habilitados_ui = indicadores_no_habilitados_ui(alcance_doc)
 
     oracle = run_month_oracles(
         harness_root_path=root,
@@ -96,14 +104,19 @@ def run_kpi_por_hoja(
             if kpi_shown_on_page(entry, measures)
         }
         spec = expectation_for_page(page_expectations, page.display_name)
+        shown_for_alcance = {
+            kid for kid in shown_ids if not kpi_tratado_como_no_visible(kid, page.display_name, alcance_doc)
+        }
         alcance = evaluate_scope_on_page(
             spec=spec,
             contracted=contracted,
-            shown_kpi_ids=shown_ids,
+            shown_kpi_ids=shown_for_alcance,
             catalog_ids=catalog_ids,
             display_name=page.display_name,
             alcance_ajustes_por_hoja=alcance_ajustes,
+            indicadores_no_habilitados_ui=no_habilitados_ui,
         )
+        expected_on_page = expected_kpi_ids_on_page(spec, contracted)
 
         casos: list[dict[str, Any]] = []
         casos.append(
@@ -123,7 +136,12 @@ def run_kpi_por_hoja(
             }
         )
         for entry in catalog:
+            kid = str(entry["kpi_id"])
             shown = kpi_shown_on_page(entry, measures)
+            if kpi_tratado_como_no_visible(kid, page.display_name, alcance_doc):
+                continue
+            if expected_on_page and kid in contracted and kid not in expected_on_page:
+                continue
             caso: dict[str, Any] = {
                 "tipo_caso": "oráculo sql mensual del indicador",
                 "identificador_indicador": entry["kpi_id"],
@@ -287,6 +305,7 @@ def run_visuales_por_hoja(
     contracted = contracted_kpi_ids(scope_kpi_doc)
     page_expectations = load_page_expectations(board_path)
     scope_filter_doc = load_scope_filters(board_path)
+    alcance_doc = load_alcance_ajustes_document(board_path)
 
     oracle = run_month_oracles(
         harness_root_path=root,
@@ -373,6 +392,13 @@ def run_visuales_por_hoja(
                 ),
             }
             casos.append(caso)
+
+        casos = postprocess_page_visual_cases(
+            casos,
+            page_display_name=page.display_name,
+            alcance_doc=alcance_doc,
+            contracted=contracted,
+        )
 
         shell = page_result_shell(page)
         shell["interpretacion_hoja"] = page_spec.get("interpretacion") if page_spec else None

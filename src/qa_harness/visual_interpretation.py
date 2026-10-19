@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from .planilla_alcance import kpi_tratado_como_no_visible, navegacion_no_valida_en_home
 from .report_pages import kpi_shown_on_page
 
 _LITERAL_VALUE_RE = re.compile(r'"Value":\s*"\'([^\']+)\'"')
@@ -336,7 +337,94 @@ def format_lectura_qa(
 
 def is_target_or_pp_measure(measure: str) -> bool:
     m = measure.casefold()
-    return " vs target" in m or " vs pp" in m or " vs anterior" in m
+    return (
+        " vs target" in m
+        or " vs pp" in m
+        or " vs anterior" in m
+        or "target dinamico" in m
+        or m.startswith("vs ")
+    )
+
+
+def is_supporting_title_measure(measure: str) -> bool:
+    m = measure.casefold()
+    return "titulo dinamico" in m or m == "titulo dinámico"
+
+
+def _is_modulo_ejecutivo_page(name: str) -> bool:
+    n = (name or "").casefold()
+    return (
+        "executive tables" in n
+        or n == "pricing"
+        or "retail media" in n
+        or "share of search" in n
+    )
+
+
+def _is_detalle_kpi_page(name: str) -> bool:
+    n = (name or "").casefold()
+    return "kpi analysis" in n or "dynamic detail" in n or "dynamic multi" in n
+
+
+def _friendly_slicer_label(query_refs: tuple[str, ...], measures: list[str]) -> str:
+    ref_map = {
+        "Selector KPI.Filtro": "selector de KPI",
+        "Date.Año/Mes": "período (año/mes)",
+        "Date.Año": "año",
+        "EcoDimKpi.Parameter full": "granularidad del análisis",
+        "EcoDimKpi.Parameter dims": "dimensión de breakdown",
+        "EcoDimKpi.Parameter Date": "rango de fechas del detalle",
+        "EcoDimKpi.Parameter EAN": "filtro por EAN",
+        "Trade.SKU": "SKU / Name",
+        "Trade.Name": "nombre de producto (Name)",
+        "Dim_Brand.Name": "marca (Name)",
+    }
+    for ref in query_refs:
+        if ref in ref_map:
+            return ref_map[ref]
+        if ref.startswith("EcoDimStore."):
+            return "Etailer / Tienda"
+        if "CategoryGroup" in ref or "Category" in ref:
+            return "Category group / Category"
+        if "Keyword" in ref:
+            return "Keyword (Share of Search)"
+    for m in measures:
+        ml = m.casefold()
+        if ml == "filtro":
+            return "selector de KPI"
+        if "parameter full" in ml:
+            return "granularidad del análisis"
+        if "parameter dims" in ml:
+            return "dimensión de breakdown"
+        if "parameter date" in ml:
+            return "rango de fechas del detalle"
+        if ml == "name":
+            return "nombre de producto (Name)"
+    if measures:
+        return measures[0]
+    if query_refs:
+        return query_refs[0].split(".")[-1]
+    return "operativo"
+
+
+def _chart_role(visual_type: str, measures: list[str], query_refs: tuple[str, ...]) -> str | None:
+    vt = visual_type.casefold()
+    refs_text = " ".join(query_refs).casefold()
+    if vt in ("linechart", "areachart"):
+        return "gráfico evolutivo del KPI"
+    if vt in ("clusteredbarchart", "hundredpercentstackedbarchart", "stackedbarchart"):
+        if "breakdown" in refs_text or "parameter dims" in refs_text:
+            return "gráfico de barras breakdown by"
+        return "gráfico de barras del KPI"
+    if vt == "pivottable":
+        if "sku" in refs_text or "trade.name" in refs_text or "trade.sku" in refs_text:
+            return "tabla operativa SKU/Name"
+        if "parameter dims" in refs_text or "breakdown" in refs_text:
+            return "tabla operativa Breakdown by"
+        return "tabla operativa de cumplimiento"
+    if "advancecard" in vt:
+        return "tarjeta resumen del KPI"
+    return None
 
 
 def is_operational_slicer(refs: tuple[str, ...]) -> bool:
@@ -505,6 +593,19 @@ def evaluate_visual_contextual(
 
         if bm_kpi and bm_kpi in contracted:
             section_name = page_id_to_name.get(target_section or "", target_section or "")
+            contrato = contract_label_for_kpi(bm_kpi, contract_names)
+            if section_name and _is_modulo_ejecutivo_page(section_name) and not _is_detalle_kpi_page(
+                section_name
+            ):
+                return finish(
+                    "acceso a módulo desde KPI",
+                    "correcto",
+                    f"Zona clicable del KPI {contrato} abre el módulo «{section_name}».",
+                    kpi_id=bm_kpi,
+                    nombre_caso=(
+                        f"{page_display_name} · acceso módulo · {contrato} → {section_name}"
+                    ),
+                )
             det = f"Bookmark '{bm_label}' abre hoja '{section_name or 'KPI Analysis'}'."
             if nav_name and nav_name not in ("KPI Analysis", "Share of Search", "Retail Media - Navigation"):
                 return finish(
@@ -542,19 +643,26 @@ def evaluate_visual_contextual(
     if vtype_cf == "slicer" or filter_id_for_visual(visual.query_refs):
         fid = filter_id_for_visual(visual.query_refs)
         if not fid:
-            label = visual.query_refs[0].split(".")[-1] if visual.query_refs else "filtro"
+            friendly = _friendly_slicer_label(visual.query_refs, measures)
             return finish(
-                f"filtro operativo ({label})",
+                f"filtro operativo ({friendly})",
                 "correcto",
                 "Filtro de plantilla eco no listado en scope-filters; se acepta si el tablero lo usa.",
+                nombre_caso=f"{page_display_name} · filtro {friendly}",
             )
         fv = filter_verdicts.get(fid)
+        friendly_contractual = {
+            "etailer_tienda": "Etailer / Tienda",
+            "categoria": "Category group / Category",
+            "keyword_sos": "Keyword (Share of Search)",
+        }.get(fid, fid)
         if fv is None:
             return finish(
                 f"filtro contractual ({fid})",
                 "correcto",
                 "Filtro contractual presente; no se re-evaluó SQL en esta pasada.",
-                nombre_caso=f"{page_display_name} · filtro {fid}",
+                nombre_caso=f"{page_display_name} · filtro {friendly_contractual}",
+                identificador_filtro=fid,
             )
         ok = fv.get("status") == "ok"
         return finish(
@@ -562,7 +670,7 @@ def evaluate_visual_contextual(
             "correcto" if ok else "fallido",
             fv.get("detail")
             or ("Valores alineados al contrato." if ok else "Valores del filtro fuera del contrato."),
-            nombre_caso=f"{page_display_name} · filtro {fv.get('filtro', fid)}",
+            nombre_caso=f"{page_display_name} · filtro {friendly_contractual}",
             identificador_filtro=fid,
         )
 
@@ -583,12 +691,21 @@ def evaluate_visual_contextual(
         _, row_kpi = _primary_kpi_card_in_band(row_peers, catalog, anchor=visual)
         kid = row_kpi or kpi_ids_for_effective_measures(measures, catalog)
         kid_one = kid[0] if isinstance(kid, list) and kid else row_kpi
+        contrato = contract_label_for_kpi(kid_one, contract_names) if kid_one else "KPI"
         return finish(
             "comparación target o período anterior",
             "correcto",
             "Target y variación vs período anterior no están en el scope; la visual cumple su rol de apoyo.",
             kpi_id=kid_one,
-            nombre_caso=f"{page_display_name} · variación · {measures[0]}",
+            nombre_caso=f"{page_display_name} · variación vs período anterior · {contrato}",
+        )
+
+    if measures and all(is_supporting_title_measure(m) for m in measures):
+        return finish(
+            "título dinámico del detalle",
+            "correcto",
+            "Encabezado dinámico según el KPI seleccionado; no es un valor de indicador.",
+            nombre_caso=f"{page_display_name} · título dinámico del detalle",
         )
 
     if not measures and not visual.query_refs:
@@ -629,7 +746,17 @@ def evaluate_visual_contextual(
             )
 
     primary_kpi = next((k for k in kpi_ids if k in contracted), kpi_ids[0] if kpi_ids else None)
-    if primary_kpi and primary_kpi in oracle_by_kpi:
+    chart_rol = _chart_role(visual.visual_type, measures, visual.query_refs)
+    if chart_rol:
+        return finish(
+            chart_rol,
+            "correcto",
+            "Visual de detalle del KPI; el valor numérico se valida en la capa KPI / oráculo SQL.",
+            kpi_id=primary_kpi,
+        )
+
+    applies_oracle_on_visual = vtype_cf == "card" or "advancecard" in vtype_cf
+    if primary_kpi and primary_kpi in oracle_by_kpi and applies_oracle_on_visual:
         row = oracle_by_kpi[primary_kpi]
         ok = row.get("compare_status") == "pass"
         return finish(
@@ -669,3 +796,55 @@ def evaluate_visual_contextual(
         f"No se pudo vincular medidas {measures!r} al catálogo; revisar nomenclatura DAX.",
         nombre_caso=titulo_tecnico,
     )
+
+
+def postprocess_page_visual_cases(
+    casos: list[dict[str, Any]],
+    *,
+    page_display_name: str,
+    alcance_doc: dict[str, Any],
+    contracted: set[str],
+) -> list[dict[str, Any]]:
+    """Marca redundancias y exclusiones de planilla sin perder trazabilidad en JSON."""
+    nav_invalidas = navegacion_no_valida_en_home(alcance_doc)
+    out: list[dict[str, Any]] = []
+    for caso in casos:
+        c = dict(caso)
+        rol = (c.get("rol_interpretado") or "").casefold()
+        nombre = (c.get("nombre_caso") or "").casefold()
+
+        if page_display_name == "Home" and nav_invalidas:
+            for dest in nav_invalidas:
+                if dest.casefold() in nombre:
+                    c["veredicto"] = "no aplica"
+                    c["omitir_planilla_por_redundancia"] = True
+                    c["incluir_en_planilla"] = False
+                    c["detalle"] = (
+                        f"Softys no valida navegación a «{dest}» en Home (fuera de alcance acordado)."
+                    )
+                    break
+
+        kid = c.get("identificador_indicador")
+        if isinstance(kid, str) and kpi_tratado_como_no_visible(kid, page_display_name, alcance_doc):
+            if "zona clicable" in rol or "tarjeta o gráfico kpi" in rol:
+                c["veredicto"] = "no aplica"
+                c["omitir_planilla_por_redundancia"] = True
+                c["incluir_en_planilla"] = False
+                c["detalle"] = "KPI no habilitado en la UI de Softys en esta hoja."
+
+        if c.get("identificador_filtro") in ("etailer_tienda", "categoria"):
+            c["veredicto"] = "no aplica"
+            c["omitir_planilla_por_redundancia"] = True
+            c["incluir_en_planilla"] = False
+            c["detalle"] = (
+                "Valores del filtro validados en la capa Filtros (aprobado por producto)."
+            )
+
+        if "tarjeta o gráfico kpi" in rol and c.get("veredicto") == "correcto":
+            c["veredicto"] = "no aplica"
+            c["omitir_planilla_por_redundancia"] = True
+            c["incluir_en_planilla"] = False
+            c["detalle"] = "Valor del KPI ya cubierto por el caso «Validar KPI …» en la misma hoja."
+
+        out.append(c)
+    return out
