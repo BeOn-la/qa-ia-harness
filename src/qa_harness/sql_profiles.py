@@ -54,7 +54,7 @@ def profile_entry(config: dict[str, Any], profile_name: str) -> dict[str, Any]:
     if entry.get("execution") != "allowed":
         raise ContractError(f"Perfil '{profile_name}' no habilitado para ejecución.")
     if profile_name == "production":
-        raise ContractError("Producción no es un perfil ejecutable.")
+        raise ContractError("Producción no es un perfil ejecutable (usar prod-readonly).")
     env_file = entry.get("env_file")
     if not isinstance(env_file, str) or not env_file.strip():
         raise ContractError(f"Perfil '{profile_name}' sin env_file.")

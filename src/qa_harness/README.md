@@ -24,6 +24,7 @@
 | `kpi_catalog.py` | Lee `qa/kpi-catalog.yml` del consumidor. |
 | `pbi_kpi_month.py` | Oráculos mensuales from-dax vs from-definition. |
 | `pbi_filter_scope.py` | Filtros del reporte vs `scope-filters.json`. |
+| `pbi_sp_scope.py` | SP `pbi.*` del PBIP vs `scope-pbi-sps.json` + filtros (PES-8782). |
 | `pbi_por_hoja.py` | KPI / filtros / visuales agregados por hoja del informe. |
 | `report_pages.py` | Páginas del `.Report` (PBIR JSON). |
 | `report_filters.py` | Filtros a nivel página/visual. |
@@ -44,5 +45,6 @@
 | `resolve-board` | `board_profiles` |
 | `pbi-kpi-month` | `pbi_kpi_month` |
 | `pbi-filter-scope` | `pbi_filter_scope` |
+| `pbi-sp-scope` | `pbi_sp_scope` |
 | `pbi-kpi-por-hoja`, `pbi-filtros-por-hoja`, `pbi-visuales-por-hoja` | `pbi_por_hoja` |
 | `export-planilla`, `corrida-planilla`, `planilla-cobertura` | `planilla_qa`, `corrida_planilla` |

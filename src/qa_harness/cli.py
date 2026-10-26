@@ -12,6 +12,7 @@ from .gate import evaluate
 from .reporting import load_report, markdown
 from .board_profiles import resolve_board_from_ref
 from .pbi_filter_scope import run_filter_scope
+from .pbi_sp_scope import run_pbi_sp_scope
 from .pbi_kpi_month import run_month_oracles
 from .pbi_por_hoja import run_filtros_por_hoja, run_kpi_por_hoja, run_visuales_por_hoja
 from .corrida_planilla import run_corrida_planilla
@@ -67,6 +68,15 @@ def main(argv=None):
     sub.add_argument("--board", help="ID en boards.* (default: default_board)")
     sub.add_argument("--ref", help="Ruta al .Report / .pbip (alternativa a --board)")
     sub.add_argument("--timeout", type=int, default=180, help="Timeout segundos ODBC/SQL")
+    sub = subs.add_parser(
+        "pbi-sp-scope",
+        help="SP pbi.* del PBIP + filtros contractuales (PES-8782; scope-pbi-sps.json)",
+    )
+    sub.add_argument("--profile", required=True, help="Perfil en .qa-profiles.local.json (ej. staging)")
+    sub.add_argument("--harness-root", type=Path, help="Raíz qa-ia-harness (default: autodetect)")
+    sub.add_argument("--board", help="ID en boards.* (default: default_board)")
+    sub.add_argument("--ref", help="Ruta al .Report / .pbip (alternativa a --board)")
+    sub.add_argument("--timeout", type=int, default=300, help="Timeout segundos ODBC/SQL")
     sub = subs.add_parser(
         "pbi-kpi-por-hoja",
         help="Indicadores por hoja del informe (oráculo SQL + catálogo); --hoja opcional",
@@ -227,6 +237,18 @@ def main(argv=None):
             if args.board and args.ref:
                 raise ContractError("Usar solo --board o --ref en pbi-filter-scope.")
             result = run_filter_scope(
+                harness_root_path=args.harness_root.resolve() if args.harness_root else None,
+                profile=args.profile,
+                board_id=args.board,
+                board_ref=args.ref,
+                timeout_seconds=args.timeout,
+            )
+            print(json.dumps(result, ensure_ascii=False, indent=2))
+            return int(result["exit_code"])
+        if args.command == "pbi-sp-scope":
+            if args.board and args.ref:
+                raise ContractError("Usar solo --board o --ref en pbi-sp-scope.")
+            result = run_pbi_sp_scope(
                 harness_root_path=args.harness_root.resolve() if args.harness_root else None,
                 profile=args.profile,
                 board_id=args.board,

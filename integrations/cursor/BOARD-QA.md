@@ -54,7 +54,7 @@ Los comandos `/Calculo*` entregan resultados **agrupados por hoja** (nombre visi
 | Filtros (contrato + SQL) | `qa-harness pbi-filtros-por-hoja --profile staging --ref "<ruta>"` | `--hoja "Share of Search"` |
 | Visuales (cada visual vs contrato / SQL) | `qa-harness pbi-visuales-por-hoja --profile staging --ref "<ruta>"` | `--hoja "Home"` |
 
-Comandos planos (sin desglose por hoja, legado): `pbi-kpi-month`, `pbi-filter-scope`.
+Comandos planos (sin desglose por hoja, legado): `pbi-kpi-month`, `pbi-filter-scope`, `pbi-sp-scope` (todos los `exec pbi.*` del PBIP + filtros contractuales; `scope-pbi-sps.json`).
 
 ### Planilla Google (resumen por caso de prueba)
 

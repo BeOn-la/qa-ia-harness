@@ -1,7 +1,7 @@
 [CmdletBinding()]
 param(
     [Parameter(Mandatory)]
-    [ValidateSet('local', 'staging', 'production')]
+    [ValidateSet('local', 'staging', 'production', 'prod-readonly')]
     [string]$Profile,
 
     [Parameter(Mandatory, ValueFromRemainingArguments)]
